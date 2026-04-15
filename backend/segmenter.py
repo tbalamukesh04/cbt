@@ -15,13 +15,13 @@ def _is_noise(line: str) -> bool:
         return True
     return False
 
-def build_questions(lines: list[str]) -> list[dict]:
+def build_questions(lines: list[dict]) -> list[dict]:
     questions = []
     current_question = []
     has_seen_question = False
     
-    for raw_line in lines:
-        line = raw_line.strip()
+    for raw_line_obj in lines:
+        line = raw_line_obj["text"].strip()
         
         # 1. Clean Line Stream
         if _is_noise(line):
@@ -37,12 +37,10 @@ def build_questions(lines: list[str]) -> list[dict]:
             if is_q_start:
                 has_seen_question = True
                 current_question.append(line)
-            # Else, it's instruction/intro text before first question. Ignore it completely.
             continue
             
         # 4. Segmentation Building
         if is_q_start:
-            # Finalize previous question
             if current_question:
                 questions.append({
                     "id": f"q{len(questions) + 1}",
@@ -51,10 +49,8 @@ def build_questions(lines: list[str]) -> list[dict]:
                 })
             current_question = [line]
         else:
-            # Continuation
             current_question.append(line)
             
-    # Push the trailing question
     if current_question:
         questions.append({
             "id": f"q{len(questions) + 1}",
@@ -65,7 +61,6 @@ def build_questions(lines: list[str]) -> list[dict]:
     # 5. Safe Cleanup
     cleaned = []
     for q in questions:
-        # If question is too short to be real, merge it (e.g. stranded digits or cut-off options)
         if len(q["text"]) < 20 and len(cleaned) > 0:
             prev = cleaned[-1]
             prev["text"] += "\n" + q["text"]
@@ -73,7 +68,6 @@ def build_questions(lines: list[str]) -> list[dict]:
         else:
             cleaned.append(q)
             
-    # Reindex safely
     for i, q in enumerate(cleaned):
         q["id"] = f"q{i+1}"
             

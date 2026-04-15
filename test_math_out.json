@@ -1,0 +1,16 @@
+[
+  {
+    "id": "q1",
+    "text": "1. Evaluate the integral of\nsin(x)\n(A) 5 / 2\u00b7\n(B) 10",
+    "_debug": {
+      "line_count": 4
+    }
+  },
+  {
+    "id": "q2",
+    "text": "2. Let the permittivity be 8.85 \u03bcF. Units are C/m^3.",
+    "_debug": {
+      "line_count": 1
+    }
+  }
+]
