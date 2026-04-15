@@ -1,4 +1,4 @@
-import fitz  # PyMuPDF
+import fitz
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -6,17 +6,10 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 import uvicorn
 
-# Pipeline Modules
-from pdf_extractor import extract_raw_blocks
-from layout import (
-    reconstruct_reading_order,
-    build_lines,
-    build_paragraphs
-)
-from classifier import classify_paragraph
-from segmenter import segment_document
+from extractor import extract_lines
+from segmenter import build_questions
 
-app = FastAPI(title="JEE Parser MVP - Layout Aware Pipeline")
+app = FastAPI(title="JEE Parser MVP - Simplified Word Level")
 
 # ── Static frontend ────────────────────────────────────────────────────────
 FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
@@ -64,29 +57,14 @@ async def upload_pdf(file: UploadFile = File(...)):
     if not has_text_layer(doc):
         raise HTTPException(status_code=400, detail="No text layer detected. Scanned PDFs unsupported.")
 
-    # 2. Extract Raw Blocks
-    raw_blocks = extract_raw_blocks(doc)
-    if not raw_blocks:
-        raise HTTPException(status_code=400, detail="No text blocks found.")
+    # 2. Extract Lines (Word-level sorting)
+    lines = extract_lines(doc)
+    
+    if not lines:
+        raise HTTPException(status_code=400, detail="No readable text lines found.")
 
-    # 3. Layout Reconstruction
-    ordered_blocks = reconstruct_reading_order(raw_blocks)
-    lines = build_lines(ordered_blocks)
-    paragraphs, left_margin = build_paragraphs(lines)
-
-    # 4. Paragraph Classification
-    has_seen_question = False
-    for p in paragraphs:
-        p_class, is_ambiguous = classify_paragraph(p, left_margin, tolerance=15.0, has_seen_question=has_seen_question)
-        p["class"] = p_class
-        p["ambiguous"] = is_ambiguous
-        print("PARAGRAPH:", repr(p["text"][:30]), p["x0"], p_class, is_ambiguous)
-        
-        if p_class == "question_start":
-            has_seen_question = True
-
-    # 5. Segmentation
-    questions = segment_document(paragraphs, left_margin, tolerance=15.0)
+    # 3. Simple Segmentation
+    questions = build_questions(lines)
 
     if not questions:
         raise HTTPException(status_code=422, detail="No questions detected after segmentation.")

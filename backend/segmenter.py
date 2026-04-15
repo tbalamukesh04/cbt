@@ -1,121 +1,80 @@
-from classifier import ParaClass
+import re
 
-def segment_document(paragraphs: list[dict], left_margin: float, tolerance: float = 15.0) -> list[dict]:
-    """
-    Build questions from classified paragraphs.
-    """
+# Strong regex for starting questions
+Q_START_REGEX = re.compile(r"^\d+[\.\)]|^Q\s*\d+", re.IGNORECASE)
+
+def _is_noise(line: str) -> bool:
+    """Identify lines to completely ignore (headers, whitespace, raw page digits)"""
+    val = line.strip().lower()
+    if not val:
+        return True
+    if val.isdigit():  # Unlikely to be useful, probably a standalone page number
+        return True
+    # Strip common headers
+    if any(k in val for k in ["jee", "paper", "time:", "timestamp", "date:", "page"]):
+        return True
+    return False
+
+def build_questions(lines: list[str]) -> list[dict]:
     questions = []
+    current_question = []
+    has_seen_question = False
     
-    current_q_text = []
-    current_debug = {"paragraph_count": 0, "weak_joins": 0, "ambiguous_starts": 0}
-    q_counter = 0
-    last_paragraph = None
-
-    def flush_current():
-        nonlocal q_counter, current_q_text, current_debug, last_paragraph
-        if current_q_text:
-            q_counter += 1
-            questions.append({
-                "id": f"q{q_counter}",
-                "text": "\n".join(current_q_text),
-                "_debug": dict(current_debug)
-            })
-            current_q_text = []
-            current_debug = {"paragraph_count": 0, "weak_joins": 0, "ambiguous_starts": 0}
-            last_paragraph = None
-
-    for p in paragraphs:
-        p_class = p.get("class")
-        ambiguous = p.get("ambiguous", False)
+    for raw_line in lines:
+        line = raw_line.strip()
         
-        if p_class == ParaClass.INSTRUCTION:
-            # Drop instructions outright
+        # 1. Clean Line Stream
+        if _is_noise(line):
             continue
             
-        elif p_class == ParaClass.QUESTION_START:
-            flush_current()
-            current_q_text.append(p["text"])
-            current_debug["paragraph_count"] += 1
-            last_paragraph = p
+        # 2. Strong Question Start Detection
+        is_q_start = False
+        if Q_START_REGEX.match(line) and len(line) > 3:
+            is_q_start = True
             
-        elif p_class == ParaClass.CONTINUATION:
-            if not current_q_text:
-                # Stranded continuation (could be options for an unsaved question or top of page)
-                # Keep it in buffer, but mark weak
-                current_q_text.append(p["text"])
-                current_debug["paragraph_count"] += 1
-                current_debug["weak_joins"] += 1
-                if ambiguous:
-                    current_debug["ambiguous_starts"] += 1
-                last_paragraph = p
-                continue
-                
-            # Continuation validation
-            is_weak = False
+        # 3. Instruction Handling
+        if not has_seen_question:
+            if is_q_start:
+                has_seen_question = True
+                current_question.append(line)
+            # Else, it's instruction/intro text before first question. Ignore it completely.
+            continue
             
-            # Check indentation consistency
-            indent_match = abs(p["x0"] - last_paragraph["x0"]) <= tolerance
+        # 4. Segmentation Building
+        if is_q_start:
+            # Finalize previous question
+            if current_question:
+                questions.append({
+                    "id": f"q{len(questions) + 1}",
+                    "text": "\n".join(current_question),
+                    "_debug": {"line_count": len(current_question)}
+                })
+            current_question = [line]
+        else:
+            # Continuation
+            current_question.append(line)
             
-            # Check vertical proximity if on same page
-            v_gap_small = False
-            if p["page"] == last_paragraph["page"] and p["col"] == last_paragraph["col"]:
-                v_gap = p["y0"] - last_paragraph["y0"]
-                # Rough logic: gap smaller than ~3-4 regular lines
-                if 0 <= v_gap < 60:
-                    v_gap_small = True
-                    
-            if not (indent_match or v_gap_small):
-                is_weak = True
-
-            current_q_text.append(p["text"])
-            current_debug["paragraph_count"] += 1
-            if is_weak:
-                current_debug["weak_joins"] += 1
-            if ambiguous:
-                current_debug["ambiguous_starts"] += 1
-                
-            last_paragraph = p
-
-    flush_current()
-    
-    # Safe Post-Processing (rule 7)
-    final_questions = safe_post_process(questions, tolerance, left_margin)
-    
-    return final_questions
-
-
-def safe_post_process(questions: list[dict], tolerance: float, left_margin: float) -> list[dict]:
-    """
-    Merge fragments ONLY if:
-    - length < 10 chars
-    - contains NO alphabetic chars
-    - previous question exists
-    - indentation matches previous
-    (Indentation is tricky here because 'questions' block lost x0 metadata, 
-    but the rule states we shouldn't use aggressive heuristics. 
-    We will strictly merge stranded numeric fragments. Since we don't have x0 in Questions output,
-    we'll rely heavily on characters.)
-    """
-    if not questions:
-        return []
+    # Push the trailing question
+    if current_question:
+        questions.append({
+            "id": f"q{len(questions) + 1}",
+            "text": "\n".join(current_question),
+            "_debug": {"line_count": len(current_question)}
+        })
         
+    # 5. Safe Cleanup
     cleaned = []
-    
     for q in questions:
-        text = q["text"].strip()
-        stripped_alpha = "".join([c for c in text if c.isalpha()])
-        
-        # Checking if this is a fragment
-        if len(text) < 10 and len(stripped_alpha) == 0 and len(cleaned) > 0:
-            # Merge into previous
+        # If question is too short to be real, merge it (e.g. stranded digits or cut-off options)
+        if len(q["text"]) < 20 and len(cleaned) > 0:
             prev = cleaned[-1]
-            prev["text"] += f"\n{text}"
-            prev["_debug"]["weak_joins"] += 1
+            prev["text"] += "\n" + q["text"]
+            prev["_debug"]["line_count"] += q["_debug"]["line_count"]
         else:
             cleaned.append(q)
             
-    # Re-index
-    for idx, q in enumerate(cleaned):
-        q["id"] = f"q{idx + 1}"
-        
+    # Reindex safely
+    for i, q in enumerate(cleaned):
+        q["id"] = f"q{i+1}"
+            
     return cleaned
