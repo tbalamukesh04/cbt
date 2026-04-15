@@ -8,8 +8,9 @@ import uvicorn
 
 from extractor import extract_lines
 from segmenter import build_questions
+from renderer import render_questions
 
-app = FastAPI(title="JEE Parser MVP - Simplified Word Level")
+app = FastAPI(title="JEE Parser MVP — Image-Based")
 
 # ── Static frontend ────────────────────────────────────────────────────────
 FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
@@ -57,19 +58,19 @@ async def upload_pdf(file: UploadFile = File(...)):
     if not has_text_layer(doc):
         raise HTTPException(status_code=400, detail="No text layer detected. Scanned PDFs unsupported.")
 
-    # 2. Extract Lines (Word-level sorting)
+    # 2. Extract → Segment → Render
     lines = extract_lines(doc)
-    
     if not lines:
         raise HTTPException(status_code=400, detail="No readable text lines found.")
 
-    # 3. Simple Segmentation
     questions = build_questions(lines)
-
     if not questions:
         raise HTTPException(status_code=422, detail="No questions detected after segmentation.")
 
-    return {"total": len(questions), "questions": questions}
+    rendered = render_questions(doc, questions)
+
+    return {"total": len(rendered), "questions": rendered}
+
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
