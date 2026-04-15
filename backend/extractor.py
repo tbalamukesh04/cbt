@@ -1,10 +1,10 @@
 import fitz
-from ocr_recovery import is_math_region, ocr_full_page, align_and_recover
+from visual_recovery import is_math_token, crop_math_region
 
 def extract_lines(doc: fitz.Document, y_threshold: float = 3.0) -> list[dict]:
     """
     Extract words, group them into lines by y0 proximity, sort by x0.
-    Returns structurally aware line dicts with bboxes.
+    Returns structurally aware line dicts with visual vectors inline preserving exact rendering.
     """
     all_lines = []
     
@@ -34,7 +34,40 @@ def extract_lines(doc: fitz.Document, y_threshold: float = 3.0) -> list[dict]:
             
         for line_words in lines_data:
             line_words.sort(key=lambda w: w[0])
-            line_text = " ".join(w[4].strip() for w in line_words)
+            
+            # Step: Detect and Group Math Regions Instantly
+            final_text_parts = []
+            math_group = []
+            
+            def flush_math():
+                """Helper to calculate merged boundary of corrupted span and render immediately"""
+                if math_group:
+                    x0 = min(mw[0] for mw in math_group)
+                    y0 = min(mw[1] for mw in math_group)
+                    x1 = max(mw[2] for mw in math_group)
+                    y1 = max(mw[3] for mw in math_group)
+                    
+                    val = crop_math_region(page, (x0, y0, x1, y1), padding=3)
+                    math_group.clear()
+                    return val
+                return ""
+            
+            for w in line_words:
+                text = w[4].strip()
+                if not text:
+                    continue
+                    
+                if is_math_token(text):
+                    math_group.append(w)
+                else:
+                    if math_group:
+                        final_text_parts.append(flush_math())
+                    final_text_parts.append(text)
+                    
+            if math_group:
+                final_text_parts.append(flush_math())
+                
+            line_text = " ".join(final_text_parts)
             
             if line_text:
                 x0 = min(w[0] for w in line_words)
@@ -49,20 +82,4 @@ def extract_lines(doc: fitz.Document, y_threshold: float = 3.0) -> list[dict]:
                 }
                 all_lines.append(line_obj)
                 
-    # Integration Step: OCR Dual-Representation Full Page Alignment
-    # Determine which pages even contain math errors to avoid useless processing
-    damaged_pages = {obj["page"] for obj in all_lines if is_math_region(obj["text"])}
-    
-    ocr_cache = {}
-    for pg_num in damaged_pages:
-        ocr_cache[pg_num] = ocr_full_page(doc[pg_num])
-        
-    for line_obj in all_lines:
-        text = line_obj["text"]
-        if is_math_region(text):
-            pg_ocr_lines = ocr_cache.get(line_obj["page"], [])
-            recovered = align_and_recover(text, pg_ocr_lines, threshold=0.5)
-            # Replaces only if safely qualified by recovery parameters
-            line_obj["text"] = recovered
-
     return all_lines
