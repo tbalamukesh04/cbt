@@ -4,7 +4,7 @@ import base64
 # Maximum vertical gap (px) before we stop expanding toward a neighbor
 MAX_GAP_EXPANSION = 40
 PADDING_X = 10
-PADDING_Y = 8
+PADDING_Y = 15
 
 
 def _compute_question_spans(questions: list[dict]) -> list[dict]:
@@ -114,16 +114,11 @@ def render_questions(doc: fitz.Document, questions: list[dict]) -> list[dict]:
             b64 = base64.b64encode(img_bytes).decode("utf-8")
             images.append(f"data:image/png;base64,{b64}")
 
-        # Derive answer_type from section metadata, default to "mcq"
-        section = q.get("section")
-        answer_type = section["answer_type"] if section else "mcq"
-
         rendered.append({
             "id": q["id"],
             "type": "image_question",
             "images": images,
-            "answer_type": answer_type,
-            "section": section,
+            "section": q.get("section", {"name": "", "description": "", "answer_type": "single_correct_mcq"}),
             "_debug": q["_debug"],
         })
 

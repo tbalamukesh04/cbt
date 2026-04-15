@@ -27,7 +27,6 @@
     }
     .upload-card h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
     .upload-card p  { font-size: 13px; color: #64748b; margin-bottom: 20px; }
-
     .upload-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 
     input[type="file"] {
@@ -46,8 +45,11 @@
     .btn-primary:hover:not(:disabled) { background: #2563eb; }
     .btn-merge { background: #10b981; color: white; }
 
-    /* Status */
-    #status { font-size: 13px; margin-top: 14px; padding: 10px 14px; border-radius: 8px; display: none; }
+    /* Status bar */
+    #status {
+      font-size: 13px; margin-top: 14px; padding: 10px 14px;
+      border-radius: 8px; display: none;
+    }
     #status.info    { background: #eff6ff; color: #1d4ed8; display: block; }
     #status.error   { background: #fef2f2; color: #b91c1c; display: block; }
     #status.success { background: #f0fdf4; color: #15803d; display: block; }
@@ -59,45 +61,24 @@
       background: white; border-radius: 12px;
       box-shadow: 0 1px 4px rgba(0,0,0,0.07); overflow: hidden;
     }
-
-    /* Section banner */
-    .section-banner {
-      padding: 10px 16px;
-      background: #eef2ff;
-      border-bottom: 1px solid #c7d2fe;
-    }
-    .section-banner .section-name {
-      font-size: 13px; font-weight: 800;
-      color: #4338ca; letter-spacing: 0.06em;
-      text-transform: uppercase;
-    }
-    .section-banner .section-desc {
-      font-size: 12px; color: #6366f1;
-      margin-top: 2px;
-    }
-    .section-banner .section-type {
-      display: inline-block; margin-top: 4px;
-      font-size: 10px; font-weight: 700;
-      background: #c7d2fe; color: #3730a3;
-      padding: 2px 8px; border-radius: 4px;
-      letter-spacing: 0.04em; text-transform: uppercase;
-    }
-
-    /* Question header */
     .q-header {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 10px 16px;
-      background: #f8fafc; border-bottom: 1px solid #e2e8f0;
+      padding: 10px 16px; background: #f8fafc;
+      border-bottom: 1px solid #e2e8f0;
       font-size: 12px; font-weight: 700; color: #475569;
       letter-spacing: 0.04em;
     }
-
+    .q-header .section-tag {
+      font-size: 10px; font-weight: 600;
+      padding: 2px 8px; border-radius: 4px;
+      background: #ede9fe; color: #6d28d9;
+    }
     .q-body {
       padding: 16px; display: flex; flex-direction: column; gap: 8px;
     }
     .q-body img {
-      display: block; max-width: 100%; border-radius: 4px;
-      border: 1px solid #e2e8f0;
+      display: block; max-width: 100%;
+      border-radius: 4px; border: 1px solid #e2e8f0;
     }
 
     /* Answer area */
@@ -105,8 +86,9 @@
       padding: 12px 16px; border-top: 1px solid #f1f5f9;
       display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
     }
-    .q-answer label { font-size: 13px; color: #64748b; font-weight: 600; }
-
+    .q-answer label {
+      font-size: 13px; color: #64748b; font-weight: 600;
+    }
     .option-btn {
       width: 36px; height: 36px; border-radius: 50%;
       border: 2px solid #cbd5e1; background: white;
@@ -114,12 +96,18 @@
       cursor: pointer; transition: all 0.15s;
     }
     .option-btn:hover { border-color: #3b82f6; color: #3b82f6; }
-    .option-btn.selected { background: #3b82f6; border-color: #3b82f6; color: white; }
+    .option-btn.selected {
+      background: #3b82f6; border-color: #3b82f6; color: white;
+    }
+    /* Checkbox style for multiple correct */
+    .option-btn.checkbox { border-radius: 6px; }
+    .option-btn.checkbox.selected {
+      background: #7c3aed; border-color: #7c3aed; color: white;
+    }
 
     .num-input {
-      width: 120px; padding: 8px 12px;
+      width: 120px; padding: 8px 12px; font-size: 14px;
       border: 2px solid #cbd5e1; border-radius: 8px;
-      font-size: 14px; font-weight: 600;
       outline: none; transition: border-color 0.15s;
     }
     .num-input:focus { border-color: #3b82f6; }
@@ -133,7 +121,6 @@
 <body>
 <div class="container">
 
-  <!-- Upload -->
   <div class="upload-card">
     <h1>JEE PDF Parser — MVP</h1>
     <p>Upload a text-based JEE question paper PDF. Questions are rendered as images with full visual fidelity.</p>
@@ -144,7 +131,6 @@
     <div id="status"></div>
   </div>
 
-  <!-- Questions -->
   <div id="workspace"></div>
 
 </div>
@@ -158,52 +144,94 @@
     el.textContent = msg;
     el.className = type;
   }
-  function escHtml(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 
-  // Pretty-print answer_type
-  function fmtType(t) {
-    const map = {
-      mcq: "MCQ", single_correct_mcq: "Single Correct",
-      multiple_correct_mcq: "Multiple Correct", numerical: "Numerical",
-      matrix_match: "Matrix Match", comprehension: "Comprehension",
-    };
-    return map[t] || t;
+  // ── Answer type labels ──────────────────────────────────────────────
+  const TYPE_LABELS = {
+    single_correct_mcq:   "Single Correct",
+    multiple_correct_mcq: "Multiple Correct",
+    integer_type:         "Integer",
+    numerical_type:       "Numerical",
+  };
+
+  // ── Build answer input for a question ───────────────────────────────
+  function buildAnswerUI(q, qi) {
+    const answer = document.createElement("div");
+    answer.className = "q-answer";
+    const aType = q.section ? q.section.answer_type : "single_correct_mcq";
+
+    if (aType === "single_correct_mcq") {
+      answer.innerHTML = `<label>Answer:</label>`;
+      ["A", "B", "C", "D"].forEach(opt => {
+        const btn = document.createElement("button");
+        btn.className = "option-btn";
+        btn.textContent = opt;
+        if (q._selected === opt) btn.classList.add("selected");
+        btn.addEventListener("click", () => {
+          q._selected = opt;
+          render();
+        });
+        answer.appendChild(btn);
+      });
+
+    } else if (aType === "multiple_correct_mcq") {
+      answer.innerHTML = `<label>Answer (select all):</label>`;
+      if (!q._selected_multi) q._selected_multi = {};
+      ["A", "B", "C", "D"].forEach(opt => {
+        const btn = document.createElement("button");
+        btn.className = "option-btn checkbox";
+        btn.textContent = opt;
+        if (q._selected_multi[opt]) btn.classList.add("selected");
+        btn.addEventListener("click", () => {
+          q._selected_multi[opt] = !q._selected_multi[opt];
+          render();
+        });
+        answer.appendChild(btn);
+      });
+
+    } else if (aType === "integer_type") {
+      answer.innerHTML = `<label>Answer (integer):</label>`;
+      const input = document.createElement("input");
+      input.type = "number";
+      input.step = "1";
+      input.className = "num-input";
+      input.placeholder = "e.g. 7";
+      input.value = q._num_answer || "";
+      input.addEventListener("change", (e) => { q._num_answer = e.target.value; });
+      answer.appendChild(input);
+
+    } else if (aType === "numerical_type") {
+      answer.innerHTML = `<label>Answer (decimal):</label>`;
+      const input = document.createElement("input");
+      input.type = "number";
+      input.step = "0.01";
+      input.className = "num-input";
+      input.placeholder = "e.g. 3.14";
+      input.value = q._num_answer || "";
+      input.addEventListener("change", (e) => { q._num_answer = e.target.value; });
+      answer.appendChild(input);
+    }
+
+    return answer;
   }
 
-  // ── Render ─────────────────────────────────────────────────────────
+  // ── Render ──────────────────────────────────────────────────────────
   function render() {
     const ws = document.getElementById("workspace");
     ws.innerHTML = "";
-
-    let lastSection = null;
 
     questions.forEach((q, qi) => {
       const card = document.createElement("div");
       card.className = "q-card";
 
-      // Section banner — show when section changes
-      const sec = q.section;
-      const secKey = sec ? sec.section_name : null;
-      if (sec && secKey !== lastSection) {
-        lastSection = secKey;
-        const banner = document.createElement("div");
-        banner.className = "section-banner";
-        banner.innerHTML = `
-          <div class="section-name">${escHtml(sec.section_name)}</div>
-          ${sec.section_description
-            ? `<div class="section-desc">${escHtml(sec.section_description)}</div>`
-            : ""}
-          <span class="section-type">${fmtType(sec.answer_type)}</span>
-        `;
-        card.appendChild(banner);
-      }
+      const aType = q.section ? q.section.answer_type : "single_correct_mcq";
+      const typeLabel = TYPE_LABELS[aType] || aType;
 
       // Header
       const header = document.createElement("div");
       header.className = "q-header";
       header.innerHTML = `
         <span>${q.id.toUpperCase()}</span>
-        <span style="color:#94a3b8">${q.images.length} image${q.images.length !== 1 ? "s" : ""}</span>
+        <span class="section-tag">${typeLabel}</span>
       `;
       card.appendChild(header);
 
@@ -213,54 +241,15 @@
       q.images.forEach(src => {
         const img = document.createElement("img");
         img.src = src;
-        img.alt = `${q.id} question image`;
+        img.alt = `${q.id}`;
         body.appendChild(img);
       });
       card.appendChild(body);
 
-      // Answer area — adapts to answer_type
-      const answer = document.createElement("div");
-      answer.className = "q-answer";
+      // Answer area — switches by type
+      card.appendChild(buildAnswerUI(q, qi));
 
-      if (q.answer_type === "numerical") {
-        answer.innerHTML = `<label>Answer:</label>`;
-        const inp = document.createElement("input");
-        inp.type = "text";
-        inp.className = "num-input";
-        inp.placeholder = "Enter value";
-        inp.value = q._numAnswer || "";
-        inp.addEventListener("input", e => { q._numAnswer = e.target.value; });
-        answer.appendChild(inp);
-      } else if (q.answer_type === "multiple_correct_mcq") {
-        answer.innerHTML = `<label>Answer (select all):</label>`;
-        q._selected = q._selected || {};
-        ["A", "B", "C", "D"].forEach(opt => {
-          const btn = document.createElement("button");
-          btn.className = "option-btn" + (q._selected[opt] ? " selected" : "");
-          btn.textContent = opt;
-          btn.addEventListener("click", () => {
-            q._selected[opt] = !q._selected[opt];
-            render();
-          });
-          answer.appendChild(btn);
-        });
-      } else {
-        // single_correct_mcq, mcq, or default
-        answer.innerHTML = `<label>Answer:</label>`;
-        ["A", "B", "C", "D"].forEach(opt => {
-          const btn = document.createElement("button");
-          btn.className = "option-btn" + (q._selected === opt ? " selected" : "");
-          btn.textContent = opt;
-          btn.addEventListener("click", () => {
-            q._selected = opt;
-            render();
-          });
-          answer.appendChild(btn);
-        });
-      }
-      card.appendChild(answer);
-
-      // Footer
+      // Footer — merge
       if (qi < questions.length - 1) {
         const footer = document.createElement("div");
         footer.className = "q-footer";
@@ -276,7 +265,7 @@
     });
   }
 
-  // ── Mutations ──────────────────────────────────────────────────────
+  // ── Mutations ───────────────────────────────────────────────────────
   function mergeQuestion(qi) {
     if (qi >= questions.length - 1) return;
     questions[qi].images = questions[qi].images.concat(questions[qi + 1].images);
@@ -286,7 +275,7 @@
     render();
   }
 
-  // ── Upload ─────────────────────────────────────────────────────────
+  // ── Upload ──────────────────────────────────────────────────────────
   document.getElementById("uploadBtn").addEventListener("click", async () => {
     const file = document.getElementById("pdfInput").files[0];
     if (!file) { setStatus("Please select a PDF file first.", "error"); return; }
@@ -300,14 +289,15 @@
     try {
       const fd = new FormData();
       fd.append("file", file);
-
       const res = await fetch(`${API}/upload`, { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Unknown server error.");
-
       questions = data.questions;
       render();
-      setStatus(`✓ Parsed ${data.total} question${data.total !== 1 ? "s" : ""}. Use Merge to fix boundaries.`, "success");
+      setStatus(
+        `✓ Parsed ${data.total} question${data.total !== 1 ? "s" : ""}. Use Merge to fix boundaries.`,
+        "success"
+      );
     } catch (err) {
       setStatus(`✗ ${err.message}`, "error");
     } finally {
