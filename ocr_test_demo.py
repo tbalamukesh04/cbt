@@ -6,14 +6,16 @@ from extractor import extract_lines
 from segmenter import build_questions
 
 import ocr_recovery as ocr
-original_ocr = ocr.run_ocr_on_region
-
-def mock_ocr(page, bbox):
-    # This simulates a perfect OCR read of a broken formula
-    return "E = 1/2 m v^2"
+def mock_ocr(page, **kwargs):
+    # Simulates PyTesseract reading the full page including the recovered broken equation
+    return [
+        "1. Calculate the kinetic energy limit.",
+        "E = 1/2 m v^2",
+        "2. What is the value of force?"
+    ]
 
 import extractor
-extractor.run_ocr_on_region = mock_ocr
+extractor.ocr_full_page = mock_ocr
 
 
 doc = fitz.open()

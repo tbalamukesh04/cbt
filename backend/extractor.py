@@ -1,10 +1,10 @@
 import fitz
-from ocr_recovery import is_corrupted, run_ocr_on_region
+from ocr_recovery import is_math_region, ocr_full_page, align_and_recover
 
 def extract_lines(doc: fitz.Document, y_threshold: float = 3.0) -> list[dict]:
     """
     Extract words, group them into lines by y0 proximity, sort by x0.
-    Returns structurally aware line dicts with bboxes for OCR correction.
+    Returns structurally aware line dicts with bboxes.
     """
     all_lines = []
     
@@ -49,16 +49,20 @@ def extract_lines(doc: fitz.Document, y_threshold: float = 3.0) -> list[dict]:
                 }
                 all_lines.append(line_obj)
                 
-    # Integration Step: OCR Hybrid Recovery
+    # Integration Step: OCR Dual-Representation Full Page Alignment
+    # Determine which pages even contain math errors to avoid useless processing
+    damaged_pages = {obj["page"] for obj in all_lines if is_math_region(obj["text"])}
+    
+    ocr_cache = {}
+    for pg_num in damaged_pages:
+        ocr_cache[pg_num] = ocr_full_page(doc[pg_num])
+        
     for line_obj in all_lines:
         text = line_obj["text"]
-        if is_corrupted(text):
-            page_obj = doc[line_obj["page"]]
-            ocr_text = run_ocr_on_region(page_obj, line_obj["bbox"])
-            
-            # Conditionally replace
-            if len(ocr_text) >= len(text) and any(c.isalnum() for c in ocr_text):
-                # Ensure it doesn't just look like noise
-                line_obj["text"] = ocr_text
+        if is_math_region(text):
+            pg_ocr_lines = ocr_cache.get(line_obj["page"], [])
+            recovered = align_and_recover(text, pg_ocr_lines, threshold=0.5)
+            # Replaces only if safely qualified by recovery parameters
+            line_obj["text"] = recovered
 
     return all_lines
