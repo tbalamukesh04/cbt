@@ -2,24 +2,26 @@ import re
 
 Q_START_REGEX = re.compile(r"^\d+[\.\)]|^Q\s*\d+", re.IGNORECASE)
 
-# Mapping keywords found in "Description" line to answer_type
-DESCRIPTION_MAPPING = [
+# Keywords → answer_type, checked against header + description combined
+ANSWER_TYPE_PATTERNS = [
     (re.compile(r"one\s+or\s+more\s+than\s+one\s+correct", re.IGNORECASE), "multiple_correct_mcq"),
-    (re.compile(r"multiple\s+correct", re.IGNORECASE), "multiple_correct_mcq"),
-    (re.compile(r"single\s+correct", re.IGNORECASE), "single_correct_mcq"),
-    (re.compile(r"single\s+digit\s+integer", re.IGNORECASE), "integer_type"),
-    (re.compile(r"numerical", re.IGNORECASE), "numerical_type"),
+    (re.compile(r"multiple\s+correct",                      re.IGNORECASE), "multiple_correct_mcq"),
+    (re.compile(r"single\s+correct",                        re.IGNORECASE), "single_correct_mcq"),
+    (re.compile(r"single\s+digit\s+integer",                re.IGNORECASE), "integer_type"),
+    (re.compile(r"integer\s+type",                          re.IGNORECASE), "integer_type"),
+    (re.compile(r"numerical|decimal",                       re.IGNORECASE), "numerical_type"),
 ]
 
 DEFAULT_SECTION = {
-    "name": "General Section",
+    "name": "General",
     "description": "",
     "answer_type": "single_correct_mcq",
 }
 
 
+# ─── Classifiers ───────────────────────────────────────────────────────────────
+
 def _is_noise(text: str) -> bool:
-    """Identify lines to completely ignore."""
     val = text.strip().lower()
     if not val:
         return True
@@ -30,131 +32,137 @@ def _is_noise(text: str) -> bool:
     return False
 
 
+def _is_question_start(text: str) -> bool:
+    return bool(Q_START_REGEX.match(text.strip())) and len(text.strip()) > 3
+
+
 def _is_section_header(text: str) -> bool:
     """
-    A line is a section header ONLY if:
-    - contains 'SECTION'
-    - OR is uppercase AND short (< 12 words)
+    Structural detection: a line is a section header if:
+      1. It contains 'SECTION'
+      2. OR it is entirely uppercase and short (< 12 words),
+         but NOT a question start and NOT an option line.
     """
     s = text.strip()
     if not s:
         return False
-    
-    # Exclusion: Option lines like (A) or (1) should never be sections
-    if re.match(r"^\(?([A-Da-d0-9])[\.\)]", s):
+    if re.match(r"^\(?[A-Da-d][.\)]", s):   # option lines: (A) / A. / a)
         return False
-
+    if _is_question_start(s):
+        return False
     if "SECTION" in s.upper():
         return True
-    
     words = s.split()
-    if len(words) < 12 and s.isupper():
-        # Avoid treating question labels like "Q1." as sections if they are uppercase
-        if Q_START_REGEX.match(s):
-            return False
+    if len(words) < 12 and s == s.upper() and any(c.isalpha() for c in s):
         return True
-    
     return False
 
 
-def _map_section_to_type(header: str, description: str) -> str:
-    """Maps section text or description to a known answer type."""
-    combined = (header + " " + description).lower()
-    for pattern, a_type in DESCRIPTION_MAPPING:
+def _parse_answer_type(header: str, description: str) -> str:
+    combined = header + " " + description
+    for pattern, a_type in ANSWER_TYPE_PATTERNS:
         if pattern.search(combined):
             return a_type
-    return "single_correct_mcq"  # Fallback
+    return "single_correct_mcq"
 
+
+# ─── Single-pass state machine ─────────────────────────────────────────────────
 
 def build_questions(lines: list[dict]) -> list[dict]:
     """
-    Segment lines into questions using text-based boundary detection and
-    robust section state tracking.
-    """
-    questions = []
-    current_lines = []
-    current_section = dict(DEFAULT_SECTION)
-    has_seen_question = False
+    Single-pass state machine over extracted lines.
 
-    def flush():
-        nonlocal current_lines
-        if current_lines:
+    State:
+      current_section  — set when a section header is encountered
+      pending_lines    — lines accumulating for the current (open) question
+      pending_section  — section snapshot taken when the question was opened
+      questions        — finalized question objects
+
+    Priority per line (in order):
+      1. noise         → skip entirely
+      2. question_start→ flush pending, open new question with current_section snapshot
+      3. section_header→ update current_section (lookahead for description)
+      4. other         → append to open question (if any)
+    """
+    questions: list[dict] = []
+
+    # State
+    current_section: dict = dict(DEFAULT_SECTION)
+    pending_lines: list[dict] = []
+    pending_section: dict = dict(DEFAULT_SECTION)
+
+    def _flush_pending():
+        """Emit the pending question to the output list."""
+        nonlocal pending_lines
+        if pending_lines:
             questions.append({
                 "id": f"q{len(questions) + 1}",
-                "lines": list(current_lines),
-                "section": dict(current_section),
-                "_debug": {"line_count": len(current_lines)},
+                "lines": list(pending_lines),
+                "section": dict(pending_section),   # snapshot taken at open time
+                "_debug": {"line_count": len(pending_lines)},
             })
-            current_lines = []
+            pending_lines = []
 
-    # Iterate with index to allow lookahead for description
     i = 0
-    while i < len(lines):
-        line = lines[i]
-        text = line["text"].strip()
+    n = len(lines)
+    while i < n:
+        text = lines[i]["text"].strip()
 
+        # 1. Noise — skip
         if _is_noise(text):
             i += 1
             continue
 
-        # PART 3 - Priority Order: Question starts take priority over section headers
-        is_q_start = bool(Q_START_REGEX.match(text)) and len(text) > 3
-
-        if is_q_start:
-            # Handle question start
-            flush()
-            if not has_seen_question:
-                has_seen_question = True
-            current_lines.append(line)
+        # 2. Question start — flush previous, open new with current_section snapshot
+        if _is_question_start(text):
+            _flush_pending()
+            pending_section = dict(current_section)  # ← snapshot HERE
+            pending_lines = [lines[i]]
             i += 1
             continue
 
+        # 3. Section header — update section state (does NOT start a question)
         if _is_section_header(text):
-            # PART 2 - On Section Detection
-            flush()
-            
-            # Extract Description Line (lookahead)
+            header = text
             description = ""
-            header_text = text
-            if i + 1 < len(lines):
-                desc_line = lines[i+1]
-                desc_text = desc_line["text"].strip()
-                
-                # ONLY consume the next line as a description if it DOES NOT look like a question
-                # and is not noise (like a page number)
-                if not Q_START_REGEX.match(desc_text) and not _is_noise(desc_text):
-                    description = desc_text
-                    i += 1 # Advance to consume description line
-            
-            i += 1 # Advance to consume section header
+
+            # Lookahead: consume next line as description if it is safe to do so
+            if i + 1 < n:
+                nxt = lines[i + 1]["text"].strip()
+                if (not _is_question_start(nxt)
+                        and not _is_section_header(nxt)
+                        and not _is_noise(nxt)):
+                    description = nxt
+                    i += 1   # consume description line
 
             current_section = {
-                "name": header_text,
+                "name": header,
                 "description": description,
-                "answer_type": _map_section_to_type(header_text, description),
+                "answer_type": _parse_answer_type(header, description),
             }
+            i += 1
             continue
 
-        # Continuation of current question or pre-question noise
-        if has_seen_question:
-            current_lines.append(line)
-        
+        # 4. Continuation — append to open question
+        if pending_lines:
+            pending_lines.append(lines[i])
+
         i += 1
 
-    flush()
+    # Flush the final pending question
+    _flush_pending()
 
-    # Final cleanup (conservative)
-    cleaned = []
+    # Conservative cleanup: merge sub-5-char fragments into the previous question
+    cleaned: list[dict] = []
     for q in questions:
-        total_text = " ".join(l["text"] for l in q["lines"])
-        if len(total_text.strip()) < 5 and cleaned:
-            prev = cleaned[-1]
-            prev["lines"].extend(q["lines"])
-            prev["_debug"]["line_count"] += q["_debug"]["line_count"]
+        total = " ".join(l["text"] for l in q["lines"]).strip()
+        if len(total) < 5 and cleaned:
+            cleaned[-1]["lines"].extend(q["lines"])
+            cleaned[-1]["_debug"]["line_count"] += q["_debug"]["line_count"]
         else:
             cleaned.append(q)
 
-    for i, q in enumerate(cleaned):
-        q["id"] = f"q{i + 1}"
+    for idx, q in enumerate(cleaned):
+        q["id"] = f"q{idx + 1}"
 
     return cleaned
