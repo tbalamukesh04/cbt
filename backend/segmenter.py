@@ -149,6 +149,70 @@ def _parse_section(lines: list[dict], i: int) -> dict:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# INSTRUCTION BLOCK DETECTOR  — fires without needing a "SECTION" keyword
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _is_instruction_block(text: str) -> bool:
+    """
+    A line is an instruction block if it describes how to answer questions.
+    Requires BOTH:
+      - an answer-related keyword (correct / option)
+      - AND a scope keyword (question / section / this)
+    AND is short enough (< 50 words) to not be part of a question body.
+    """
+    t = text.strip().lower()
+    has_answer_kw = (
+        "correct" in t
+        or "option" in t
+        or "integer" in t
+        or "numerical" in t
+        or "decimal" in t
+    )
+    has_scope_kw = (
+        "question" in t
+        or "section" in t
+        or "this" in t
+        or "each" in t
+        or "contains" in t
+    )
+    return has_answer_kw and has_scope_kw and len(t.split()) < 50
+
+
+def _detect_answer_type(text: str) -> str:
+    """
+    Score-based answer type detection applied directly to an instruction line.
+    Uses higher weights than _score_section_type to be decisive on single lines.
+    """
+    t = _normalize(text)
+
+    score: dict[str, int] = {
+        "multiple_correct_mcq": 0,
+        "single_correct_mcq":   0,
+        "integer_type":         0,
+        "numerical_type":       0,
+    }
+
+    if "one or more" in t:         score["multiple_correct_mcq"] += 3
+    if "more than one" in t:       score["multiple_correct_mcq"] += 3
+    if "multiple correct" in t:    score["multiple_correct_mcq"] += 4
+
+    if "only one" in t:            score["single_correct_mcq"] += 4
+    if "single correct" in t:      score["single_correct_mcq"] += 3
+    if "one correct" in t and "more" not in t:
+                                   score["single_correct_mcq"] += 3
+
+    if "integer" in t:             score["integer_type"] += 4
+    if "single digit" in t:        score["integer_type"] += 3
+
+    if "numerical" in t:           score["numerical_type"] += 4
+    if "decimal" in t:             score["numerical_type"] += 3
+    if "non negative" in t:        score["numerical_type"] += 1
+
+    winner = max(score, key=score.get)
+    return winner if score[winner] > 0 else "single_correct_mcq"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # SINGLE-PASS STATE MACHINE
 # Returns an ORDERED list of section + question nodes:
 #   { "type": "section", "section": {...} }
@@ -222,21 +286,46 @@ def build_questions(lines: list[dict]) -> list[dict]:
 
         # 3. Section header — flush current question, emit section node
         if _is_section_header(text):
-            _flush_question()                          # close open question first
+            _flush_question()
 
             section = _parse_section(lines, i)
             current_section = section
 
-            output.append({                            # emit standalone section node
+            output.append({
                 "type":    "section",
                 "section": dict(current_section),
             })
 
             print(f"[SECTION] {current_section}")
-            i += 1                                     # consume only the header line
+            i += 1
             continue
 
-        # 4. Question start — flush previous, open new with current_section snapshot
+        # 4. Instruction block — sections WITHOUT a 'SECTION' keyword
+        #    Fires for divider-style lines like:
+        #    "This section contains questions with one or more correct options."
+        if _is_instruction_block(text):
+            detected_type = _detect_answer_type(text)
+
+            print(f"[INSTRUCTION BLOCK] {text[:100]}")
+            print(f"[DETECTED TYPE] {detected_type}")
+
+            # Only update section if we got a meaningful type OR there is no
+            # open question (i.e. this is genuinely a header context)
+            # Never steal a line away from a question already in progress.
+            if not pending_lines or detected_type != "single_correct_mcq":
+                current_section = {
+                    "name": "INFERRED",
+                    "description": text,
+                    "answer_type": detected_type,
+                }
+                output.append({
+                    "type":    "section",
+                    "section": dict(current_section),
+                })
+                i += 1
+                continue
+
+        # 5. Question start — flush previous, open new with current_section snapshot
         if _is_question_start(text):
             _flush_question()
             pending_section = dict(current_section)    # snapshot HERE
