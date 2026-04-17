@@ -154,28 +154,75 @@ def _parse_section(lines: list[dict], i: int) -> dict:
 
 def _is_instruction_block(text: str) -> bool:
     """
-    A line is an instruction block if it describes how to answer questions.
-    Requires BOTH:
-      - an answer-related keyword (correct / option)
-      - AND a scope keyword (question / section / this)
-    AND is short enough (< 50 words) to not be part of a question body.
+    Detects ANY line that opens an instruction block.
+    Two paths:
+
+    PATH A — Standalone answer-type declaration (no scope keyword needed).
+      e.g. "One or More than one correct type"
+           "Single Correct Option"
+           "Numerical Value Type"
+      Requires a STRONG answer signal and is very short (< 12 words).
+
+    PATH B — Scoped instruction sentence.
+      e.g. "This section contains 06 multiple choice questions..."
+           "Each question has only one correct answer."
+      Requires both an answer keyword and a scope keyword, < 80 words.
     """
     t = text.strip().lower()
+    words = t.split()
+
+    # Path A: short, strong answer-type label
+    STRONG_SIGNALS = (
+        "one or more than one correct",
+        "one or more correct",
+        "more than one correct",
+        "multiple correct",
+        "single correct",
+        "only one correct",
+        "single digit integer",
+        "integer type",
+        "numerical value",
+        "numerical type",
+        "decimal type",
+    )
+    if len(words) < 12 and any(sig in t for sig in STRONG_SIGNALS):
+        return True
+
+    # Path B: scoped sentence with answer + scope keywords
     has_answer_kw = (
-        "correct" in t
-        or "option" in t
-        or "integer" in t
-        or "numerical" in t
-        or "decimal" in t
+        "correct" in t or "option" in t
+        or "integer" in t or "numerical" in t or "decimal" in t
     )
     has_scope_kw = (
-        "question" in t
-        or "section" in t
-        or "this" in t
-        or "each" in t
-        or "contains" in t
+        "this section contains" in t or "each question has" in t
+        or "each of the following" in t
+        or ("question" in t and ("section" in t or "this" in t or "each" in t))
     )
-    return has_answer_kw and has_scope_kw and len(t.split()) < 50
+    return has_answer_kw and has_scope_kw and len(words) < 80
+
+
+def _collect_instruction_block(lines: list[dict], i: int) -> tuple[str, int]:
+    """
+    Starting at line i (the trigger line), collect consecutive lines that are
+    part of the same instruction block.
+
+    Stops at: question start, subject/section header, or after 6 lines.
+    Returns (combined_text, number_of_lines_consumed).
+    """
+    block: list[str] = []
+    consumed = 0
+    for j in range(i, min(i + 6, len(lines))):
+        t = lines[j]["text"].strip()
+        if j > i and _is_question_start(t):  # never stop on the trigger line itself
+            break
+        if j > i and (_is_section_header(t) or _is_subject_header(t)):
+            break
+        if not t:
+            break
+        block.append(t)
+        consumed += 1
+    return " ".join(block), consumed
+
 
 
 def _detect_answer_type(text: str) -> str:
@@ -300,30 +347,29 @@ def build_questions(lines: list[dict]) -> list[dict]:
             i += 1
             continue
 
-        # 4. Instruction block — sections WITHOUT a 'SECTION' keyword
-        #    Fires for divider-style lines like:
-        #    "This section contains questions with one or more correct options."
+        # 4. Instruction block — fires regardless of whether a question is open.
+        #    Collects a multi-line block, then always flushes + emits section node.
+        #    This prevents instruction text from being appended to question content.
         if _is_instruction_block(text):
-            detected_type = _detect_answer_type(text)
+            block_text, consumed = _collect_instruction_block(lines, i)
+            detected_type = _detect_answer_type(block_text)
 
-            print(f"[INSTRUCTION BLOCK] {text[:100]}")
+            print(f"[INSTRUCTION BLOCK] {block_text[:120]}")
             print(f"[DETECTED TYPE] {detected_type}")
 
-            # Only update section if we got a meaningful type OR there is no
-            # open question (i.e. this is genuinely a header context)
-            # Never steal a line away from a question already in progress.
-            if not pending_lines or detected_type != "single_correct_mcq":
-                current_section = {
-                    "name": "INFERRED",
-                    "description": text,
-                    "answer_type": detected_type,
-                }
-                output.append({
-                    "type":    "section",
-                    "section": dict(current_section),
-                })
-                i += 1
-                continue
+            _flush_question()   # close any open question BEFORE emitting section
+
+            current_section = {
+                "name": "INFERRED",
+                "description": block_text,
+                "answer_type": detected_type,
+            }
+            output.append({
+                "type":    "section",
+                "section": dict(current_section),
+            })
+            i += consumed       # skip all consumed instruction lines
+            continue
 
         # 5. Question start — flush previous, open new with current_section snapshot
         if _is_question_start(text):
@@ -334,7 +380,7 @@ def build_questions(lines: list[dict]) -> list[dict]:
             i += 1
             continue
 
-        # 5. Continuation — append to open question only
+        # 6. Continuation — append to open question only
         if pending_lines:
             pending_lines.append(lines[i])
 
