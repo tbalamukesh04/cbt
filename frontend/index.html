@@ -221,50 +221,154 @@
     numerical_type:       "📐",
   };
 
-  // ── Build answer input ─────────────────────────────────────────
+  // ── Single correct renderer ────────────────────────────────────────────────
+  // State: q._selected = null | "A" | "B" | "C" | "D"   (string, NEVER array)
+  function renderSingleSelect(q, area) {
+    // Guard: if state is somehow an array, collapse to last value or null
+    if (Array.isArray(q._selected)) {
+      q._selected = q._selected.length ? q._selected[q._selected.length - 1] : null;
+    }
+
+    const label = document.createElement("label");
+    label.textContent = "Answer:";
+    area.appendChild(label);
+
+    const btnGroup = document.createElement("div");
+    btnGroup.style.display = "flex";
+    btnGroup.style.gap = "8px";
+    area.appendChild(btnGroup);
+
+    ["A", "B", "C", "D"].forEach(opt => {
+      const btn = document.createElement("button");
+      btn.className = "option-btn" + (q._selected === opt ? " selected" : "");
+      btn.textContent = opt;
+      btn.dataset.opt = opt;
+
+      btn.addEventListener("click", () => {
+        // Overwrite — single value only, never accumulate
+        q._selected = opt;
+
+        console.log("TYPE: single_correct_mcq");
+        console.log("SELECTED:", q._selected);
+
+        // Update sibling buttons in-place — no full re-render
+        btnGroup.querySelectorAll(".option-btn").forEach(b => {
+          b.classList.toggle("selected", b.dataset.opt === opt);
+        });
+      });
+
+      btnGroup.appendChild(btn);
+    });
+  }
+
+  // ── Multiple correct renderer ──────────────────────────────────────────────
+  // State: q._multi = {}  (plain object — key: true means selected)
+  function renderMultiSelect(q, area) {
+    if (!q._multi || typeof q._multi !== "object" || Array.isArray(q._multi)) {
+      q._multi = {};
+    }
+
+    const label = document.createElement("label");
+    label.textContent = "Answer (select all correct):";
+    area.appendChild(label);
+
+    const btnGroup = document.createElement("div");
+    btnGroup.style.display = "flex";
+    btnGroup.style.gap = "8px";
+    area.appendChild(btnGroup);
+
+    ["A", "B", "C", "D"].forEach(opt => {
+      const btn = document.createElement("button");
+      btn.className = "option-btn checkbox" + (q._multi[opt] ? " selected" : "");
+      btn.textContent = opt;
+      btn.dataset.opt = opt;
+
+      btn.addEventListener("click", () => {
+        // Toggle independently — does NOT clear other selections
+        q._multi[opt] = !q._multi[opt];
+
+        const selected = Object.keys(q._multi).filter(k => q._multi[k]);
+        console.log("TYPE: multiple_correct_mcq");
+        console.log("SELECTED:", selected);
+
+        btn.classList.toggle("selected", q._multi[opt]);
+      });
+
+      btnGroup.appendChild(btn);
+    });
+  }
+
+  // ── Integer renderer ───────────────────────────────────────────────────────
+  // State: q._num (string of integer)
+  function renderIntegerInput(q, area) {
+    const label = document.createElement("label");
+    label.textContent = "Answer (integer 0–9):";
+    area.appendChild(label);
+
+    const inp = document.createElement("input");
+    inp.type = "number";
+    inp.step = "1";
+    inp.min = "0";
+    inp.max = "9";
+    inp.className = "num-input";
+    inp.placeholder = "e.g. 7";
+    inp.value = q._num || "";
+    inp.addEventListener("input", e => {
+      // Enforce single-digit integer on the fly
+      const v = parseInt(e.target.value, 10);
+      if (!isNaN(v)) {
+        const clamped = Math.max(0, Math.min(9, v));
+        inp.value = clamped;
+        q._num = String(clamped);
+      } else {
+        q._num = "";
+      }
+      console.log("TYPE: integer_type  SELECTED:", q._num);
+    });
+    area.appendChild(inp);
+  }
+
+  // ── Numerical renderer ─────────────────────────────────────────────────────
+  // State: q._num (string of decimal)
+  function renderNumericalInput(q, area) {
+    const label = document.createElement("label");
+    label.textContent = "Answer (decimal):";
+    area.appendChild(label);
+
+    const inp = document.createElement("input");
+    inp.type = "number";
+    inp.step = "0.01";
+    inp.className = "num-input";
+    inp.placeholder = "e.g. 3.14";
+    inp.value = q._num || "";
+    inp.addEventListener("change", e => {
+      q._num = e.target.value;
+      console.log("TYPE: numerical_type  SELECTED:", q._num);
+    });
+    area.appendChild(inp);
+  }
+
+  // ── Master dispatcher — STRICT separation, no shared components ────────────
   function buildAnswerUI(q) {
     const area  = document.createElement("div");
     area.className = "q-answer";
     const aType = q.section ? q.section.answer_type : "single_correct_mcq";
 
     if (aType === "single_correct_mcq") {
-      area.innerHTML = `<label>Answer:</label>`;
-      ["A","B","C","D"].forEach(opt => {
-        const btn = document.createElement("button");
-        btn.className = "option-btn";
-        btn.textContent = opt;
-        if (q._selected === opt) btn.classList.add("selected");
-        btn.addEventListener("click", () => { q._selected = opt; render(); });
-        area.appendChild(btn);
-      });
+      renderSingleSelect(q, area);
 
     } else if (aType === "multiple_correct_mcq") {
-      area.innerHTML = `<label>Answer (select all correct):</label>`;
-      if (!q._multi) q._multi = {};
-      ["A","B","C","D"].forEach(opt => {
-        const btn = document.createElement("button");
-        btn.className = "option-btn checkbox";
-        btn.textContent = opt;
-        if (q._multi[opt]) btn.classList.add("selected");
-        btn.addEventListener("click", () => { q._multi[opt] = !q._multi[opt]; render(); });
-        area.appendChild(btn);
-      });
+      renderMultiSelect(q, area);
 
     } else if (aType === "integer_type") {
-      area.innerHTML = `<label>Answer (integer):</label>`;
-      const inp = document.createElement("input");
-      inp.type = "number"; inp.step = "1"; inp.className = "num-input";
-      inp.placeholder = "e.g. 7"; inp.value = q._num || "";
-      inp.addEventListener("change", e => { q._num = e.target.value; });
-      area.appendChild(inp);
+      renderIntegerInput(q, area);
 
     } else if (aType === "numerical_type") {
-      area.innerHTML = `<label>Answer (decimal):</label>`;
-      const inp = document.createElement("input");
-      inp.type = "number"; inp.step = "0.01"; inp.className = "num-input";
-      inp.placeholder = "e.g. 3.14"; inp.value = q._num || "";
-      inp.addEventListener("change", e => { q._num = e.target.value; });
-      area.appendChild(inp);
+      renderNumericalInput(q, area);
+
+    } else {
+      console.warn("Unknown answer_type:", aType, "— falling back to single_correct_mcq");
+      renderSingleSelect(q, area);
     }
 
     return area;

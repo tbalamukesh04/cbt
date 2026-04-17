@@ -80,7 +80,10 @@ def _is_block_noise(text: str) -> bool:
         return True
     if t.endswith("?"):
         return True
-    if len(t.split()) > 20:
+    # Raised from 20 → 50 so full description lines like
+    # "This section contains 06 questions... ONLY ONE option is correct."
+    # are not discarded before the scorer sees them.
+    if len(t.split()) > 50:
         return True
     return False
 
@@ -111,10 +114,13 @@ def _score_section_type(block: str) -> str:
     if "more than one" in desc:        score["multiple_correct_mcq"] += 2
     if "one or more" in desc:          score["multiple_correct_mcq"] += 2
     if "multiple correct" in desc:     score["multiple_correct_mcq"] += 3
-    if "multiple choice" in desc:      score["multiple_correct_mcq"] += 1
+    # NOTE: 'multiple choice' is NOT added — it means MCQ format, not multiple answers correct
 
     if "single correct" in desc:       score["single_correct_mcq"] += 3
     if "only one correct" in desc:     score["single_correct_mcq"] += 3
+    if "only one option" in desc:      score["single_correct_mcq"] += 4  # "ONLY ONE option is correct"
+    if "options correct" in desc:      score["single_correct_mcq"] += 2  # "One Options Correct Type"
+    if "one correct option" in desc:   score["single_correct_mcq"] += 2
     if "one correct" in desc and "more" not in desc:
                                        score["single_correct_mcq"] += 2
 
@@ -173,14 +179,22 @@ def _is_instruction_block(text: str) -> bool:
 
     # Path A: short, strong answer-type label
     STRONG_SIGNALS = (
+        # Multiple correct
         "one or more than one correct",
         "one or more correct",
         "more than one correct",
         "multiple correct",
+        # Single correct — including real JEE phrasing variants
         "single correct",
         "only one correct",
+        "only one option",          # "ONLY ONE option is correct"
+        "one option correct",       # "One Options Correct Type"
+        "options correct type",     # "(One Options Correct Type)"
+        "one correct option",
+        # Integer
         "single digit integer",
         "integer type",
+        # Numerical
         "numerical value",
         "numerical type",
         "decimal type",
@@ -247,6 +261,9 @@ def _detect_answer_type(text: str) -> str:
     if "single correct" in t:      score["single_correct_mcq"] += 3
     if "one correct" in t and "more" not in t:
                                    score["single_correct_mcq"] += 3
+    if "one option" in t and "more" not in t:
+                                   score["single_correct_mcq"] += 2
+    if "options correct" in t:     score["single_correct_mcq"] += 2
 
     if "integer" in t:             score["integer_type"] += 4
     if "single digit" in t:        score["integer_type"] += 3

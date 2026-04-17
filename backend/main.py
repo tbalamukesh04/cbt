@@ -18,7 +18,10 @@ app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 
 @app.get("/", include_in_schema=False)
 async def root():
-    return FileResponse(str(FRONTEND_DIR / "index.html"))
+    resp = FileResponse(str(FRONTEND_DIR / "index.html"))
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    resp.headers["Pragma"] = "no-cache"
+    return resp
 
 # ── CORS ─────────────────────────────────────────────────────────────────────
 app.add_middleware(
