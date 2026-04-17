@@ -64,12 +64,13 @@ async def upload_pdf(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="No readable text lines found.")
 
     questions = build_questions(lines)
-    if not questions:
+    q_count   = sum(1 for n in questions if n["type"] == "question")
+    if q_count == 0:
         raise HTTPException(status_code=422, detail="No questions detected after segmentation.")
 
     rendered = render_questions(doc, questions)
 
-    return {"total": len(rendered), "questions": rendered}
+    return {"total": q_count, "nodes": rendered}
 
 
 if __name__ == "__main__":

@@ -59,16 +59,21 @@ EXPECTED = [
     ("q6", "numerical_type",       1),
 ]
 
-print(f"{'ID':<6} {'Expected type':<25} {'Got type':<25} {'Images':>6}  {'Pass?'}")
-print("-" * 75)
+print(f"{'ID':<6} {'Expected type':<25} {'Got type':<25} {'Images':>6}  {'Result'}")
+print("-" * 78)
 all_pass = True
-for (exp_id, exp_type, exp_imgs), q in zip(EXPECTED, rendered):
+
+# Filter only question nodes from the rendered output
+rendered_questions = [n for n in rendered if n["type"] == "question"]
+
+for (exp_id, exp_type, exp_imgs), q in zip(EXPECTED, rendered_questions):
     got_type = q["section"]["answer_type"]
     got_imgs = len(q["images"])
     ok = (got_type == exp_type) and (got_imgs == exp_imgs)
     if not ok:
         all_pass = False
     print(f"{q['id']:<6} {exp_type:<25} {got_type:<25} {got_imgs:>6}  {'PASS' if ok else 'FAIL'}")
+
 
 print()
 print("ALL PASS" if all_pass else "FAILURES DETECTED")

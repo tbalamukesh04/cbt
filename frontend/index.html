@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>JEE Parser MVP</title>
+  <title>JEE PDF Parser</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -17,12 +17,10 @@
 
     .container { max-width: 860px; margin: 0 auto; }
 
-    /* Upload card */
+    /* ── Upload card ────────────────────────────────────────────── */
     .upload-card {
-      background: white;
-      border-radius: 12px;
-      padding: 28px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      background: white; border-radius: 12px;
+      padding: 28px; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
       margin-bottom: 24px;
     }
     .upload-card h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
@@ -41,11 +39,12 @@
       transition: opacity 0.15s;
     }
     .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-primary  { background: #3b82f6; color: white; }
+    .btn-primary { background: #3b82f6; color: white; }
     .btn-primary:hover:not(:disabled) { background: #2563eb; }
-    .btn-merge { background: #10b981; color: white; }
+    .btn-merge   { background: #10b981; color: white; font-size: 12px;
+                   padding: 6px 14px; }
 
-    /* Status bar */
+    /* ── Status ─────────────────────────────────────────────────── */
     #status {
       font-size: 13px; margin-top: 14px; padding: 10px 14px;
       border-radius: 8px; display: none;
@@ -54,9 +53,41 @@
     #status.error   { background: #fef2f2; color: #b91c1c; display: block; }
     #status.success { background: #f0fdf4; color: #15803d; display: block; }
 
-    /* Workspace */
-    #workspace { display: flex; flex-direction: column; gap: 20px; }
+    /* ── Workspace ──────────────────────────────────────────────── */
+    #workspace { display: flex; flex-direction: column; gap: 16px; }
 
+    /* ── Section header block ───────────────────────────────────── */
+    .section-block {
+      border-radius: 10px;
+      border-left: 4px solid #6d28d9;
+      background: #faf5ff;
+      padding: 14px 18px;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+    }
+    .section-block .section-icon {
+      font-size: 20px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .section-block .section-info { flex: 1; }
+    .section-block .section-name {
+      font-size: 13px; font-weight: 800;
+      color: #5b21b6; letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .section-block .section-desc {
+      font-size: 12px; color: #7c3aed; margin-top: 2px;
+    }
+    .section-block .section-type-badge {
+      font-size: 11px; font-weight: 700;
+      padding: 3px 10px; border-radius: 20px;
+      background: #ede9fe; color: #6d28d9;
+      flex-shrink: 0; align-self: center;
+    }
+
+    /* ── Question card ──────────────────────────────────────────── */
     .q-card {
       background: white; border-radius: 12px;
       box-shadow: 0 1px 4px rgba(0,0,0,0.07); overflow: hidden;
@@ -68,7 +99,7 @@
       font-size: 12px; font-weight: 700; color: #475569;
       letter-spacing: 0.04em;
     }
-    .q-header .section-tag {
+    .q-header .type-tag {
       font-size: 10px; font-weight: 600;
       padding: 2px 8px; border-radius: 4px;
       background: #ede9fe; color: #6d28d9;
@@ -81,14 +112,13 @@
       border-radius: 4px; border: 1px solid #e2e8f0;
     }
 
-    /* Answer area */
+    /* ── Answer area ────────────────────────────────────────────── */
     .q-answer {
       padding: 12px 16px; border-top: 1px solid #f1f5f9;
       display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
     }
-    .q-answer label {
-      font-size: 13px; color: #64748b; font-weight: 600;
-    }
+    .q-answer label { font-size: 13px; color: #64748b; font-weight: 600; }
+
     .option-btn {
       width: 36px; height: 36px; border-radius: 50%;
       border: 2px solid #cbd5e1; background: white;
@@ -96,24 +126,21 @@
       cursor: pointer; transition: all 0.15s;
     }
     .option-btn:hover { border-color: #3b82f6; color: #3b82f6; }
-    .option-btn.selected {
-      background: #3b82f6; border-color: #3b82f6; color: white;
-    }
-    /* Checkbox style for multiple correct */
+    .option-btn.selected { background: #3b82f6; border-color: #3b82f6; color: white; }
+
+    /* checkbox style for multiple correct */
     .option-btn.checkbox { border-radius: 6px; }
-    .option-btn.checkbox.selected {
-      background: #7c3aed; border-color: #7c3aed; color: white;
-    }
+    .option-btn.checkbox.selected { background: #7c3aed; border-color: #7c3aed; color: white; }
 
     .num-input {
-      width: 120px; padding: 8px 12px; font-size: 14px;
+      width: 130px; padding: 8px 12px; font-size: 14px;
       border: 2px solid #cbd5e1; border-radius: 8px;
       outline: none; transition: border-color 0.15s;
     }
     .num-input:focus { border-color: #3b82f6; }
 
     .q-footer {
-      display: flex; gap: 10px; padding: 10px 16px;
+      display: flex; gap: 10px; padding: 8px 16px;
       border-top: 1px solid #f1f5f9;
     }
   </style>
@@ -122,8 +149,8 @@
 <div class="container">
 
   <div class="upload-card">
-    <h1>JEE PDF Parser — MVP</h1>
-    <p>Upload a text-based JEE question paper PDF. Questions are rendered as images with full visual fidelity.</p>
+    <h1>JEE PDF Parser</h1>
+    <p>Upload a text-based JEE question paper. Questions are rendered as images with full visual fidelity.</p>
     <div class="upload-row">
       <input type="file" id="pdfInput" accept="application/pdf" />
       <button class="btn btn-primary" id="uploadBtn">Upload &amp; Parse</button>
@@ -132,12 +159,11 @@
   </div>
 
   <div id="workspace"></div>
-
 </div>
 
 <script>
   const API = window.location.origin;
-  let questions = [];
+  let nodes = [];   // ordered list of section + question nodes
 
   function setStatus(msg, type = "info") {
     const el = document.getElementById("status");
@@ -145,7 +171,7 @@
     el.className = type;
   }
 
-  // ── Answer type labels ──────────────────────────────────────────────
+  // ── Answer type labels ─────────────────────────────────────────
   const TYPE_LABELS = {
     single_correct_mcq:   "Single Correct",
     multiple_correct_mcq: "Multiple Correct",
@@ -153,110 +179,131 @@
     numerical_type:       "Numerical",
   };
 
-  // ── Build answer input for a question ───────────────────────────────
-  function buildAnswerUI(q, qi) {
-    const answer = document.createElement("div");
-    answer.className = "q-answer";
+  const TYPE_ICONS = {
+    single_correct_mcq:   "🔘",
+    multiple_correct_mcq: "☑️",
+    integer_type:         "🔢",
+    numerical_type:       "📐",
+  };
+
+  // ── Build answer input ─────────────────────────────────────────
+  function buildAnswerUI(q) {
+    const area  = document.createElement("div");
+    area.className = "q-answer";
     const aType = q.section ? q.section.answer_type : "single_correct_mcq";
 
     if (aType === "single_correct_mcq") {
-      answer.innerHTML = `<label>Answer:</label>`;
-      ["A", "B", "C", "D"].forEach(opt => {
+      area.innerHTML = `<label>Answer:</label>`;
+      ["A","B","C","D"].forEach(opt => {
         const btn = document.createElement("button");
         btn.className = "option-btn";
         btn.textContent = opt;
         if (q._selected === opt) btn.classList.add("selected");
-        btn.addEventListener("click", () => {
-          q._selected = opt;
-          render();
-        });
-        answer.appendChild(btn);
+        btn.addEventListener("click", () => { q._selected = opt; render(); });
+        area.appendChild(btn);
       });
 
     } else if (aType === "multiple_correct_mcq") {
-      answer.innerHTML = `<label>Answer (select all):</label>`;
-      if (!q._selected_multi) q._selected_multi = {};
-      ["A", "B", "C", "D"].forEach(opt => {
+      area.innerHTML = `<label>Answer (select all correct):</label>`;
+      if (!q._multi) q._multi = {};
+      ["A","B","C","D"].forEach(opt => {
         const btn = document.createElement("button");
         btn.className = "option-btn checkbox";
         btn.textContent = opt;
-        if (q._selected_multi[opt]) btn.classList.add("selected");
-        btn.addEventListener("click", () => {
-          q._selected_multi[opt] = !q._selected_multi[opt];
-          render();
-        });
-        answer.appendChild(btn);
+        if (q._multi[opt]) btn.classList.add("selected");
+        btn.addEventListener("click", () => { q._multi[opt] = !q._multi[opt]; render(); });
+        area.appendChild(btn);
       });
 
     } else if (aType === "integer_type") {
-      answer.innerHTML = `<label>Answer (integer):</label>`;
-      const input = document.createElement("input");
-      input.type = "number";
-      input.step = "1";
-      input.className = "num-input";
-      input.placeholder = "e.g. 7";
-      input.value = q._num_answer || "";
-      input.addEventListener("change", (e) => { q._num_answer = e.target.value; });
-      answer.appendChild(input);
+      area.innerHTML = `<label>Answer (integer):</label>`;
+      const inp = document.createElement("input");
+      inp.type = "number"; inp.step = "1"; inp.className = "num-input";
+      inp.placeholder = "e.g. 7"; inp.value = q._num || "";
+      inp.addEventListener("change", e => { q._num = e.target.value; });
+      area.appendChild(inp);
 
     } else if (aType === "numerical_type") {
-      answer.innerHTML = `<label>Answer (decimal):</label>`;
-      const input = document.createElement("input");
-      input.type = "number";
-      input.step = "0.01";
-      input.className = "num-input";
-      input.placeholder = "e.g. 3.14";
-      input.value = q._num_answer || "";
-      input.addEventListener("change", (e) => { q._num_answer = e.target.value; });
-      answer.appendChild(input);
+      area.innerHTML = `<label>Answer (decimal):</label>`;
+      const inp = document.createElement("input");
+      inp.type = "number"; inp.step = "0.01"; inp.className = "num-input";
+      inp.placeholder = "e.g. 3.14"; inp.value = q._num || "";
+      inp.addEventListener("change", e => { q._num = e.target.value; });
+      area.appendChild(inp);
     }
 
-    return answer;
+    return area;
   }
 
-  // ── Render ──────────────────────────────────────────────────────────
+  // ── Render ─────────────────────────────────────────────────────
   function render() {
     const ws = document.getElementById("workspace");
     ws.innerHTML = "";
 
-    questions.forEach((q, qi) => {
-      const card = document.createElement("div");
-      card.className = "q-card";
+    // Track question index for merge button
+    const qNodes = nodes.filter(n => n.type === "question");
 
+    nodes.forEach((node, ni) => {
+
+      // ── Section node ────────────────────────────────────────────
+      if (node.type === "section") {
+        const sec   = node.section;
+        const label = TYPE_LABELS[sec.answer_type] || sec.answer_type;
+        const icon  = TYPE_ICONS[sec.answer_type]  || "📄";
+
+        const block = document.createElement("div");
+        block.className = "section-block";
+        block.innerHTML = `
+          <div class="section-icon">${icon}</div>
+          <div class="section-info">
+            <div class="section-name">${sec.name}</div>
+            ${sec.description ? `<div class="section-desc">${sec.description}</div>` : ""}
+          </div>
+          <div class="section-type-badge">${label}</div>
+        `;
+        ws.appendChild(block);
+        return;
+      }
+
+      // ── Question node ───────────────────────────────────────────
+      const q    = node;
+      const qi   = qNodes.indexOf(q);
       const aType = q.section ? q.section.answer_type : "single_correct_mcq";
       const typeLabel = TYPE_LABELS[aType] || aType;
+
+      const card = document.createElement("div");
+      card.className = "q-card";
 
       // Header
       const header = document.createElement("div");
       header.className = "q-header";
       header.innerHTML = `
         <span>${q.id.toUpperCase()}</span>
-        <span class="section-tag">${typeLabel}</span>
+        <span class="type-tag">${typeLabel}</span>
       `;
       card.appendChild(header);
 
-      // Body — question images
+      // Images
       const body = document.createElement("div");
       body.className = "q-body";
       q.images.forEach(src => {
         const img = document.createElement("img");
-        img.src = src;
-        img.alt = `${q.id}`;
+        img.src = src; img.alt = q.id;
         body.appendChild(img);
       });
       card.appendChild(body);
 
-      // Answer area — switches by type
-      card.appendChild(buildAnswerUI(q, qi));
+      // Answer input
+      card.appendChild(buildAnswerUI(q));
 
-      // Footer — merge
-      if (qi < questions.length - 1) {
+      // Merge with next question
+      if (qi < qNodes.length - 1) {
         const footer = document.createElement("div");
         footer.className = "q-footer";
         const mergeBtn = document.createElement("button");
         mergeBtn.className = "btn btn-merge";
-        mergeBtn.textContent = "Merge with next ↓";
-        mergeBtn.addEventListener("click", () => mergeQuestion(qi));
+        mergeBtn.textContent = "Merge with next question ↓";
+        mergeBtn.addEventListener("click", () => mergeQuestion(q));
         footer.appendChild(mergeBtn);
         card.appendChild(footer);
       }
@@ -265,44 +312,50 @@
     });
   }
 
-  // ── Mutations ───────────────────────────────────────────────────────
-  function mergeQuestion(qi) {
-    if (qi >= questions.length - 1) return;
-    questions[qi].images = questions[qi].images.concat(questions[qi + 1].images);
-    questions[qi]._debug.line_count += questions[qi + 1]._debug.line_count;
-    questions.splice(qi + 1, 1);
-    questions.forEach((q, i) => q.id = `q${i + 1}`);
+  // ── Merge two adjacent question nodes ──────────────────────────
+  function mergeQuestion(q) {
+    const qNodes = nodes.filter(n => n.type === "question");
+    const qi = qNodes.indexOf(q);
+    if (qi >= qNodes.length - 1) return;
+
+    const next = qNodes[qi + 1];
+    q.images = q.images.concat(next.images);
+    q._debug.line_count += next._debug.line_count;
+
+    // Remove next from nodes list
+    nodes.splice(nodes.indexOf(next), 1);
+    // Re-number questions
+    qNodes.filter(n => n !== next).forEach((n, i) => n.id = `q${i + 1}`);
     render();
   }
 
-  // ── Upload ──────────────────────────────────────────────────────────
+  // ── Upload ─────────────────────────────────────────────────────
   document.getElementById("uploadBtn").addEventListener("click", async () => {
     const file = document.getElementById("pdfInput").files[0];
     if (!file) { setStatus("Please select a PDF file first.", "error"); return; }
 
     const btn = document.getElementById("uploadBtn");
-    btn.disabled = true;
-    btn.textContent = "Parsing…";
+    btn.disabled = true; btn.textContent = "Parsing…";
     setStatus("Uploading and parsing document…", "info");
     document.getElementById("workspace").innerHTML = "";
 
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch(`${API}/upload`, { method: "POST", body: fd });
+      const res  = await fetch(`${API}/upload`, { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Unknown server error.");
-      questions = data.questions;
+
+      nodes = data.nodes;
       render();
       setStatus(
-        `✓ Parsed ${data.total} question${data.total !== 1 ? "s" : ""}. Use Merge to fix boundaries.`,
+        `Parsed ${data.total} question${data.total !== 1 ? "s" : ""}. Use Merge to fix boundaries.`,
         "success"
       );
     } catch (err) {
-      setStatus(`✗ ${err.message}`, "error");
+      setStatus(`Error: ${err.message}`, "error");
     } finally {
-      btn.disabled = false;
-      btn.textContent = "Upload & Parse";
+      btn.disabled = false; btn.textContent = "Upload & Parse";
     }
   });
 </script>

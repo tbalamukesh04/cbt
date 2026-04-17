@@ -31,7 +31,7 @@ def _is_section_header(text: str) -> bool:
     """
     A line is a section header ONLY if:
       - contains 'section' (case-insensitive)
-      - AND is short (< 10 words) — avoids matching question text that mentions sections
+      - AND is short (< 10 words)
     """
     s = text.strip()
     return "section" in s.lower() and len(s.split()) < 10
@@ -47,41 +47,28 @@ def _is_question_start(text: str) -> bool:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _normalize(text: str) -> str:
-    """Lowercase and strip punctuation that obscures keyword matching."""
     return (
         text.lower()
-        .replace("(", " ")
-        .replace(")", " ")
-        .replace("-", " ")
-        .replace(":", " ")
+        .replace("(", " ").replace(")", " ")
+        .replace("-", " ").replace(":", " ")
         .replace("_", " ")
     )
 
 
 def _is_block_noise(text: str) -> bool:
-    """Filter lines that would pollute the section description block."""
     t = text.strip()
     if not t:
         return True
-    # Looks like a question (not instructions)
     if "which of the following" in t.lower():
         return True
-    # Ends with a question mark — likely question text
     if t.endswith("?"):
         return True
-    # Too long to be instructions
     if len(t.split()) > 20:
         return True
     return False
 
 
 def _extract_section_block(lines: list[dict], i: int) -> str:
-    """
-    Collect up to 10 lines after the section header (index i) to form
-    a description block.  Stops when a question start or another section
-    header is encountered.  Noise lines are skipped in-place (not included
-    but do not terminate the scan).
-    """
     block: list[str] = []
     for j in range(i + 1, min(i + 10, len(lines))):
         t = lines[j]["text"].strip()
@@ -95,11 +82,6 @@ def _extract_section_block(lines: list[dict], i: int) -> str:
 
 
 def _score_section_type(block: str) -> str:
-    """
-    Scoring-based classifier.  Each keyword adds a weighted score to one of
-    the four answer types.  The winner is used; ties broken by first match.
-    Returns 'single_correct_mcq' when all scores are 0.
-    """
     desc = _normalize(block)
 
     score: dict[str, int] = {
@@ -109,27 +91,22 @@ def _score_section_type(block: str) -> str:
         "numerical_type":       0,
     }
 
-    # Multiple correct signals
-    if "more than one" in desc:          score["multiple_correct_mcq"] += 2
-    if "one or more" in desc:            score["multiple_correct_mcq"] += 2
-    if "multiple correct" in desc:       score["multiple_correct_mcq"] += 3
-    if "multiple choice" in desc:        score["multiple_correct_mcq"] += 1
+    if "more than one" in desc:        score["multiple_correct_mcq"] += 2
+    if "one or more" in desc:          score["multiple_correct_mcq"] += 2
+    if "multiple correct" in desc:     score["multiple_correct_mcq"] += 3
+    if "multiple choice" in desc:      score["multiple_correct_mcq"] += 1
 
-    # Single correct signals
-    if "single correct" in desc:         score["single_correct_mcq"] += 3
-    if "only one correct" in desc:       score["single_correct_mcq"] += 3
+    if "single correct" in desc:       score["single_correct_mcq"] += 3
+    if "only one correct" in desc:     score["single_correct_mcq"] += 3
     if "one correct" in desc and "more" not in desc:
-                                         score["single_correct_mcq"] += 2
+                                       score["single_correct_mcq"] += 2
 
-    # Integer type signals
-    if "integer" in desc:                score["integer_type"] += 3
-    if "single digit" in desc:           score["integer_type"] += 2
+    if "integer" in desc:              score["integer_type"] += 3
+    if "single digit" in desc:         score["integer_type"] += 2
 
-    # Numerical type signals
-    if "numerical" in desc:              score["numerical_type"] += 3
-    if "decimal" in desc:                score["numerical_type"] += 2
-    if "non negative" in desc:           score["numerical_type"] += 1
-    if "non-negative" in desc:           score["numerical_type"] += 1
+    if "numerical" in desc:            score["numerical_type"] += 3
+    if "decimal" in desc:              score["numerical_type"] += 2
+    if "non negative" in desc:         score["numerical_type"] += 1
 
     print(f"[SECTION BLOCK] {desc[:120]}")
     print(f"[SCORES] {score}")
@@ -141,63 +118,56 @@ def _score_section_type(block: str) -> str:
     return answer_type
 
 
-def _parse_section(lines: list[dict], i: int) -> tuple[dict, int]:
-    """
-    Parse a section header at index i.
-
-    Extracts the multi-line description block that follows the header and
-    classifies it using the scoring system.  The header line itself is always
-    consumed; consumed count returned so the caller can advance the index.
-    """
+def _parse_section(lines: list[dict], i: int) -> dict:
+    """Parse a section header at index i. Returns a section dict."""
     title = lines[i]["text"].strip()
     block = _extract_section_block(lines, i)
     answer_type = _score_section_type(block)
 
-    section = {
+    return {
         "name": title,
         "description": block.strip(),
         "answer_type": answer_type,
     }
-    # Always consume exactly 1 line (the header); the block lines are scanned
-    # but NOT consumed — they will be processed normally by the state machine
-    # (as continuation/noise) and will not trigger section re-detection because
-    # they do not pass _is_section_header.
-    return section, 1
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # SINGLE-PASS STATE MACHINE
+# Returns an ORDERED list of section + question nodes:
+#   { "type": "section", "section": {...} }
+#   { "type": "question", "id": "q1", "lines": [...], "section": {...}, ... }
 # ─────────────────────────────────────────────────────────────────────────────
 
 def build_questions(lines: list[dict]) -> list[dict]:
     """
-    Single-pass state machine.
+    Single-pass state machine producing an ordered list of structural nodes.
 
-    State (defined OUTSIDE the loop — never reset inside):
-      current_section   — updated only when a SECTION header is seen
-      pending_lines     — lines accumulating for the open question
-      pending_section   — copy of current_section at the moment the question opened
+    Node types:
+      "section"  — emitted when a SECTION header is detected; never appended
+                   to question text
+      "question" — emitted when a question boundary is detected
 
-    Priority per line:
-      1. noise          → skip
-      2. section header → _parse_section; update current_section; continue
-      3. question start → flush pending; snapshot current_section; open new question
-      4. other          → append to open question
+    State (OUTSIDE the loop):
+      current_section  — updated only on section detection
+      pending_lines    — accumulates lines for the open question
+      pending_section  — snapshot of current_section at question-open time
     """
-    questions: list[dict] = []
+    output: list[dict] = []          # ordered section + question nodes
 
-    # ── State (defined OUTSIDE loop) ─────────────────────────────────────────
     current_section: dict = dict(DEFAULT_SECTION)
     pending_lines:   list  = []
     pending_section: dict  = dict(DEFAULT_SECTION)
+    q_counter: int = 0
 
-    def _flush():
-        nonlocal pending_lines
+    def _flush_question():
+        nonlocal pending_lines, q_counter
         if pending_lines:
-            questions.append({
-                "id":      f"q{len(questions) + 1}",
+            q_counter += 1
+            output.append({
+                "type":    "question",
+                "id":      f"q{q_counter}",
                 "lines":   list(pending_lines),
-                "section": dict(pending_section),   # snapshot — never a shared ref
+                "section": dict(pending_section),   # immutable copy
                 "_debug":  {"line_count": len(pending_lines)},
             })
             pending_lines = []
@@ -208,48 +178,60 @@ def build_questions(lines: list[dict]) -> list[dict]:
     while i < n:
         text = lines[i]["text"].strip()
 
-        # 1. Noise — skip
+        # 1. Noise — skip entirely
         if _is_noise(text):
             i += 1
             continue
 
-        # 2. Section header
+        # 2. Section header — flush current question, emit section node
         if _is_section_header(text):
-            section, consumed = _parse_section(lines, i)
+            _flush_question()                          # close open question first
+
+            section = _parse_section(lines, i)
             current_section = section
-            print(f"[SECTION] {current_section}")   # DEBUG CHECKPOINT
-            i += consumed
+
+            output.append({                            # emit standalone section node
+                "type":    "section",
+                "section": dict(current_section),
+            })
+
+            print(f"[SECTION] {current_section}")
+            i += 1                                     # consume only the header line
             continue
 
-        # 3. Question start
+        # 3. Question start — flush previous, open new with current_section snapshot
         if _is_question_start(text):
-            _flush()
-            pending_section = dict(current_section)  # ← snapshot HERE (copy)
+            _flush_question()
+            pending_section = dict(current_section)    # snapshot HERE
             pending_lines   = [lines[i]]
-            print(f"[QUESTION START] '{text[:40]}...' with section={pending_section['answer_type']}")  # DEBUG CHECKPOINT
+            print(f"[QUESTION START] '{text[:40]}' with section={pending_section['answer_type']}")
             i += 1
             continue
 
-        # 4. Continuation — only if a question is open
+        # 4. Continuation — append to open question only
         if pending_lines:
             pending_lines.append(lines[i])
 
         i += 1
 
-    # Flush the last open question
-    _flush()
+    _flush_question()
 
-    # Conservative cleanup: merge fragments shorter than 5 chars into previous
+    # Merge sub-5-char question fragments into the previous question node
     cleaned: list[dict] = []
-    for q in questions:
-        total = " ".join(l["text"] for l in q["lines"]).strip()
-        if len(total) < 5 and cleaned:
-            cleaned[-1]["lines"].extend(q["lines"])
-            cleaned[-1]["_debug"]["line_count"] += q["_debug"]["line_count"]
-        else:
-            cleaned.append(q)
+    for node in output:
+        if node["type"] == "question":
+            total = " ".join(l["text"] for l in node["lines"]).strip()
+            if len(total) < 5 and cleaned and cleaned[-1]["type"] == "question":
+                cleaned[-1]["lines"].extend(node["lines"])
+                cleaned[-1]["_debug"]["line_count"] += node["_debug"]["line_count"]
+                continue
+        cleaned.append(node)
 
-    for idx, q in enumerate(cleaned):
-        q["id"] = f"q{idx + 1}"
+    # Re-number questions sequentially after any merges
+    qi = 0
+    for node in cleaned:
+        if node["type"] == "question":
+            qi += 1
+            node["id"] = f"q{qi}"
 
     return cleaned
