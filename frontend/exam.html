@@ -260,6 +260,87 @@
       padding: 8px 12px; border-top: 1px solid var(--border);
       display: flex; flex-direction: column; gap: 6px;
     }
+
+    /* ── RESULTS MODAL ───────────────────────────────────────────────────── */
+    #results-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.55); z-index: 1000;
+      align-items: center; justify-content: center;
+    }
+    #results-overlay.visible { display: flex; }
+    #results-modal {
+      background: white; border-radius: 12px;
+      width: min(860px, 92vw); max-height: 88vh;
+      display: flex; flex-direction: column;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+      overflow: hidden;
+    }
+    #results-header {
+      background: linear-gradient(90deg, var(--blue), var(--accent));
+      color: white; padding: 16px 24px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    #results-header h2 { font-size: 18px; }
+    #results-header .score-badge {
+      font-size: 22px; font-weight: 800;
+      background: rgba(255,255,255,0.2); padding: 4px 16px; border-radius: 20px;
+    }
+    #results-body { flex: 1; overflow-y: auto; padding: 20px 24px; }
+    .results-summary {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+      margin-bottom: 20px;
+    }
+    .summary-card {
+      text-align: center; padding: 12px; border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .summary-card .val { font-size: 22px; font-weight: 800; }
+    .summary-card .lbl { font-size: 11px; color: #666; margin-top: 2px; }
+    .summary-card.correct { background: #e8f5e9; border-color: #a5d6a7; }
+    .summary-card.correct .val { color: var(--green); }
+    .summary-card.wrong   { background: #ffebee; border-color: #ef9a9a; }
+    .summary-card.wrong   .val { color: var(--red); }
+    .summary-card.unattempted { background: #f5f5f5; }
+    .summary-card.total .val { color: var(--blue); }
+
+    .results-section-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px; }
+    .results-section-table th {
+      background: #e8eaf6; color: var(--blue);
+      padding: 7px 10px; text-align: left; font-size: 12px;
+    }
+    .results-section-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); }
+    .results-section-table tr:last-child td { border-bottom: none; }
+    .results-section-table .score-cell { font-weight: 700; }
+    .score-pos { color: var(--green); }
+    .score-neg { color: var(--red); }
+    .score-zero { color: var(--grey); }
+
+    #q-review-toggle {
+      margin-bottom: 12px; padding: 8px 16px;
+      background: #e8eaf6; border: 1px solid #9fa8da; border-radius: 6px;
+      cursor: pointer; font-size: 13px; font-weight: 600; color: var(--blue);
+      width: 100%;
+    }
+    #q-review-table { display: none; width: 100%; border-collapse: collapse; font-size: 12px; }
+    #q-review-table.visible { display: table; }
+    #q-review-table th {
+      background: #e8eaf6; padding: 6px 10px; text-align: left; font-size: 11px;
+    }
+    #q-review-table td { padding: 6px 10px; border-bottom: 1px solid #f0f0f0; }
+    #q-review-table .row-correct { background: #f1f8e9; }
+    #q-review-table .row-wrong   { background: #fff3f3; }
+    #q-review-table .row-marked  { background: #f3e5f5; }
+
+    #results-footer {
+      padding: 12px 24px; border-top: 1px solid var(--border);
+      display: flex; justify-content: flex-end; gap: 10px;
+    }
+    .btn-results-close {
+      padding: 8px 20px; border-radius: 6px; border: none; cursor: pointer;
+      font-size: 13px; font-weight: 700;
+      background: var(--blue); color: white;
+    }
+    .btn-results-close:hover { opacity: 0.85; }
   </style>
 </head>
 <body>
@@ -337,11 +418,77 @@
 
 </div><!-- /main-body -->
 
+<!-- RESULTS MODAL -->
+<div id="results-overlay">
+  <div id="results-modal">
+    <div id="results-header">
+      <h2>📊 Exam Results</h2>
+      <div class="score-badge" id="results-score-badge">— / —</div>
+    </div>
+    <div id="results-body">
+      <div class="results-summary">
+        <div class="summary-card total">
+          <div class="val" id="res-total-score">—</div>
+          <div class="lbl">Total Score</div>
+        </div>
+        <div class="summary-card correct">
+          <div class="val" id="res-correct">—</div>
+          <div class="lbl">Correct</div>
+        </div>
+        <div class="summary-card wrong">
+          <div class="val" id="res-wrong">—</div>
+          <div class="lbl">Wrong</div>
+        </div>
+        <div class="summary-card unattempted">
+          <div class="val" id="res-unattempted">—</div>
+          <div class="lbl">Unattempted</div>
+        </div>
+      </div>
+
+      <!-- Section breakdown -->
+      <table class="results-section-table" id="results-section-table">
+        <thead>
+          <tr>
+            <th>Section</th>
+            <th>Questions</th>
+            <th>Score</th>
+            <th>Max</th>
+            <th>Correct</th>
+            <th>Wrong</th>
+            <th>Unattempted</th>
+          </tr>
+        </thead>
+        <tbody id="results-section-body"></tbody>
+      </table>
+
+      <!-- Per-question review -->
+      <button id="q-review-toggle">📋 View Per-Question Review ▾</button>
+      <table id="q-review-table">
+        <thead>
+          <tr>
+            <th>Q#</th>
+            <th>Section</th>
+            <th>Your Answer</th>
+            <th>Correct Answer</th>
+            <th>Marks</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="q-review-body"></tbody>
+      </table>
+    </div>
+    <div id="results-footer">
+      <button class="btn-results-close" id="btnResultsBack">← Back to Exam</button>
+      <button class="btn-results-close" id="btnResultsHome">🏠 Home</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ═══════════════════════════════════════════════════════════════════════════════
 // DATA LOADING
 // ═══════════════════════════════════════════════════════════════════════════════
-const raw = JSON.parse(localStorage.getItem("jee_nodes") || "[]");
+const raw      = JSON.parse(localStorage.getItem("jee_nodes")     || "[]");
 
 // ── Subject abbreviation map ──
 const ABBREV = { Physics: "Phy", Chemistry: "Chem", Mathematics: "Math", Maths: "Math" };
@@ -448,11 +595,12 @@ function renderPalette() {
   const grid = document.getElementById("palette-grid");
   grid.innerHTML = "";
   tab.questions.forEach((q, qi) => {
+    const gNum = globalQNum(activeTabIdx, qi);   // 1-indexed global number
     const btn = document.createElement("button");
     btn.className = `pq-btn ${qState[q.id] || "not_visited"}`;
     if (qi === activeQIdx) btn.classList.add("active-q");
-    btn.textContent = qi + 1;
-    btn.title = `Question ${qi + 1}`;
+    btn.textContent = gNum;
+    btn.title = `Question ${gNum}`;
     btn.addEventListener("click", () => { activeQIdx = qi; render(); });
     grid.appendChild(btn);
   });
@@ -699,7 +847,8 @@ function renderQuestion() {
   // Mark as visited
   if (qState[q.id] === "not_visited") qState[q.id] = "not_answered";
 
-  document.getElementById("q-number-label").textContent = `Question No. ${activeQIdx + 1}`;
+  const gNum = globalQNum(activeTabIdx, activeQIdx);   // global 1-based number
+  document.getElementById("q-number-label").textContent = `Question No. ${gNum}`;
 
   const scroll = document.getElementById("q-scroll");
   scroll.innerHTML = "";
@@ -799,13 +948,202 @@ function checkHasAnswer(q) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// SUBMIT
+// GRADING ENGINE
 // ═══════════════════════════════════════════════════════════════════════════════
+function gradeQuestion(aType, studentAns, correctAns) {
+  // correctAns: string[] for letters, string for numeric, or undefined/null
+  if (correctAns === undefined || correctAns === null) return null; // no key
+
+  if (aType === "single_correct_mcq") {
+    if (!studentAns) return 0;
+    const correct = Array.isArray(correctAns) ? correctAns[0] : String(correctAns);
+    return studentAns === correct ? 3 : -1;
+  }
+
+  if (aType === "multiple_correct_mcq") {
+    const selected = studentAns
+      ? Object.keys(studentAns).filter(k => studentAns[k])
+      : [];
+    if (selected.length === 0) return 0;
+    const correctSet = new Set(Array.isArray(correctAns) ? correctAns : [String(correctAns)]);
+    const wrongSelected = selected.filter(s => !correctSet.has(s));
+    if (wrongSelected.length > 0) return -2;
+    const rightSelected = selected.filter(s => correctSet.has(s));
+    if (rightSelected.length === correctSet.size) return 4; // full marks
+    return rightSelected.length;                            // partial: +1 per correct
+  }
+
+  if (aType === "integer_type") {
+    if (studentAns === null || studentAns === "") return 0;
+    const correctInt = parseInt(String(correctAns), 10);
+    return parseInt(studentAns, 10) === correctInt ? 3 : 0;
+  }
+
+  if (aType === "numerical_type") {
+    if (studentAns === null || studentAns === "") return 0;
+    const correctF = parseFloat(String(correctAns));
+    const studentF = parseFloat(studentAns);
+    if (isNaN(correctF) || isNaN(studentF)) return 0;
+    const tolerance = Math.max(Math.abs(correctF) * 0.01, 0.005);
+    return Math.abs(studentF - correctF) <= tolerance ? 4 : 0;
+  }
+
+  return 0;
+}
+
+function maxScore(aType) {
+  return { single_correct_mcq: 3, multiple_correct_mcq: 4, integer_type: 3, numerical_type: 4 }[aType] ?? 3;
+}
+
+function formatStudentAnswer(aType, ans) {
+  if (!ans && ans !== 0) return "—";
+  if (aType === "multiple_correct_mcq") {
+    const sel = Object.keys(ans).filter(k => ans[k]).sort();
+    return sel.length ? sel.join(", ") : "—";
+  }
+  return String(ans);
+}
+
+function formatCorrectAnswer(correctAns) {
+  if (correctAns === undefined || correctAns === null) return "N/A";
+  if (Array.isArray(correctAns)) return correctAns.join(", ");
+  return String(correctAns);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// RESULTS MODAL
+// ═══════════════════════════════════════════════════════════════════════════════
+function showResults() {
+  const overlay = document.getElementById("results-overlay");
+  overlay.classList.add("visible");
+
+  let totalScore = 0, maxTotal = 0;
+  let totalCorrect = 0, totalWrong = 0, totalUnattempted = 0;
+
+  const sectionRows = [];  // per-tab summary
+  const qRows = [];        // per-question rows for detailed review
+
+  tabs.forEach((tab, tabIdx) => {
+    let tabScore = 0, tabMax = 0, tabCorrect = 0, tabWrong = 0, tabUnattempted = 0;
+
+    tab.questions.forEach((q, qi) => {
+      const gNum    = globalQNum(tabIdx, qi);
+      const aType   = getAnswerType(q);
+      const correct = answerKey ? answerKey[String(gNum)] : null;
+      const student = qAnswer[q.id];
+      const score   = gradeQuestion(aType, student, correct);
+
+      tabMax += maxScore(aType);
+      if (score === null) {
+        // No key available
+      } else if (score > 0) { tabScore += score; tabCorrect++; }
+      else if (score < 0)   { tabScore += score; tabWrong++; }
+      else                  { tabUnattempted++; }
+
+      qRows.push({
+        gNum, tabLabel: tab.tabLabel, aType, student, correct, score,
+      });
+    });
+
+    totalScore      += tabScore;
+    maxTotal        += tabMax;
+    totalCorrect    += tabCorrect;
+    totalWrong      += tabWrong;
+    totalUnattempted += tabUnattempted;
+
+    sectionRows.push({
+      label: tab.tabLabel, count: tab.questions.length,
+      score: tabScore, max: tabMax,
+      correct: tabCorrect, wrong: tabWrong, unattempted: tabUnattempted,
+    });
+  });
+
+  // ── Summary cards ──
+  document.getElementById("results-score-badge").textContent = `${totalScore} / ${maxTotal}`;
+  document.getElementById("res-total-score").textContent = totalScore;
+  document.getElementById("res-correct").textContent     = totalCorrect;
+  document.getElementById("res-wrong").textContent       = totalWrong;
+  document.getElementById("res-unattempted").textContent = totalUnattempted;
+
+  // ── Section table ──
+  const secBody = document.getElementById("results-section-body");
+  secBody.innerHTML = "";
+  sectionRows.forEach(r => {
+    const row = document.createElement("tr");
+    const scoreClass = r.score > 0 ? "score-pos" : r.score < 0 ? "score-neg" : "score-zero";
+    row.innerHTML = `
+      <td>${r.label}</td>
+      <td>${r.count}</td>
+      <td class="score-cell ${scoreClass}">${r.score}</td>
+      <td>${r.max}</td>
+      <td class="score-pos">${r.correct}</td>
+      <td class="score-neg">${r.wrong}</td>
+      <td class="score-zero">${r.unattempted}</td>
+    `;
+    secBody.appendChild(row);
+  });
+  // Totals row
+  const totRow = document.createElement("tr");
+  totRow.style.fontWeight = "700";
+  totRow.style.background = "#e8eaf6";
+  const totClass = totalScore > 0 ? "score-pos" : totalScore < 0 ? "score-neg" : "score-zero";
+  totRow.innerHTML = `
+    <td>TOTAL</td>
+    <td>${qRows.length}</td>
+    <td class="score-cell ${totClass}">${totalScore}</td>
+    <td>${maxTotal}</td>
+    <td class="score-pos">${totalCorrect}</td>
+    <td class="score-neg">${totalWrong}</td>
+    <td class="score-zero">${totalUnattempted}</td>
+  `;
+  secBody.appendChild(totRow);
+
+  // ── Per-question review ──
+  const qBody = document.getElementById("q-review-body");
+  qBody.innerHTML = "";
+  qRows.forEach(r => {
+    const row = document.createElement("tr");
+    if (r.score > 0)      row.className = "row-correct";
+    else if (r.score < 0) row.className = "row-wrong";
+    else if (r.score === null) row.className = "row-marked";
+
+    const statusEmoji = r.score === null ? "⬜" : r.score > 0 ? "✅" : r.score < 0 ? "❌" : "⬜";
+    const scoreDisp   = r.score === null ? "N/A" : r.score > 0 ? `+${r.score}` : `${r.score}`;
+    const scoreClass  = r.score > 0 ? "score-pos" : r.score < 0 ? "score-neg" : "score-zero";
+
+    row.innerHTML = `
+      <td>${r.gNum}</td>
+      <td>${r.tabLabel}</td>
+      <td>${formatStudentAnswer(r.aType, r.student)}</td>
+      <td>${formatCorrectAnswer(r.correct)}</td>
+      <td class="${scoreClass}">${scoreDisp}</td>
+      <td>${statusEmoji}</td>
+    `;
+    qBody.appendChild(row);
+  });
+}
+
+// ── Toggle per-question review ──
+document.getElementById("q-review-toggle").addEventListener("click", () => {
+  const t = document.getElementById("q-review-table");
+  t.classList.toggle("visible");
+  document.getElementById("q-review-toggle").textContent =
+    t.classList.contains("visible")
+      ? "📋 Hide Per-Question Review ▴"
+      : "📋 View Per-Question Review ▾";
+});
+document.getElementById("btnResultsBack").addEventListener("click", () => {
+  document.getElementById("results-overlay").classList.remove("visible");
+});
+document.getElementById("btnResultsHome").addEventListener("click", () => {
+  window.location.href = "/";
+});
+
 function submitExam() {
-  const total     = tabs.reduce((s, t) => s + t.questions.length, 0);
-  const answered  = Object.values(qState).filter(s => s === "answered" || s === "answered_marked").length;
-  const marked    = Object.values(qState).filter(s => s === "marked").length;
-  const notVisited= Object.values(qState).filter(s => s === "not_visited").length;
+  const total      = tabs.reduce((s, t) => s + t.questions.length, 0);
+  const answered   = Object.values(qState).filter(s => s === "answered" || s === "answered_marked").length;
+  const marked     = Object.values(qState).filter(s => s === "marked").length;
+  const notVisited = Object.values(qState).filter(s => s === "not_visited").length;
 
   if (!confirm(
     `Submit Exam?\n\n` +
@@ -818,13 +1156,13 @@ function submitExam() {
 
   clearInterval(timerInterval);
   localStorage.setItem("jee_answers", JSON.stringify({ qAnswer, qState }));
-  alert("Exam submitted! Results saved.");
-  window.location.href = "/";
+  showResults();  // ← show graded results instead of redirecting
 }
 
 function autoSubmit() {
-  alert("⏰ Time's up! Exam auto-submitted.");
-  submitExam();
+  clearInterval(timerInterval);
+  localStorage.setItem("jee_answers", JSON.stringify({ qAnswer, qState }));
+  showResults();  // ← auto-submit goes straight to results
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

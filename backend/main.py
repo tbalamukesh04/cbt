@@ -9,6 +9,7 @@ import uvicorn
 from extractor import extract_lines
 from segmenter import build_questions
 from renderer import render_questions
+from answer_parser import parse_solutions
 
 app = FastAPI(title="JEE Parser MVP — Image-Based")
 
@@ -81,6 +82,25 @@ async def upload_pdf(file: UploadFile = File(...)):
     rendered = render_questions(doc, questions)
 
     return {"total": q_count, "nodes": rendered}
+
+
+@app.post("/upload_solutions")
+async def upload_solutions(file: UploadFile = File(...)):
+    """Accept a solutions PDF and return the extracted answer key."""
+    if not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files are accepted.")
+
+    content = await file.read()
+    if len(content) == 0:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+
+    try:
+        # JSON requires string keys, so convert int q_num → str
+        answers = parse_solutions(content)
+        answers_str = {str(k): v for k, v in answers.items()}
+        return {"answers": answers_str, "count": len(answers_str)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Solutions parse error: {e}")
 
 
 if __name__ == "__main__":

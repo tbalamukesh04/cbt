@@ -212,6 +212,17 @@
     </div>
   </div>
 
+  <!-- Solutions PDF upload -->
+  <div class="upload-card" id="solutionsCard">
+    <h2 style="font-size:16px;margin-bottom:4px">📋 Solutions PDF <span style="font-weight:400;color:#94a3b8;font-size:13px">(optional — required for grading)</span></h2>
+    <p style="font-size:13px;color:#64748b;margin-bottom:10px">Upload the answer key / solutions PDF. Answers like "9. AD" or "9. 3" will be auto-detected.</p>
+    <div class="upload-row">
+      <input type="file" id="solutionInput" accept="application/pdf" />
+      <button class="btn btn-primary" id="solutionBtn">Upload Solutions</button>
+    </div>
+    <div id="solutionStatus"></div>
+  </div>
+
   <div id="workspace"></div>
 </div>
 
@@ -549,9 +560,39 @@
 
   // ── Start Exam button ──────────────────────────────────────────
   document.getElementById("startExamBtn").addEventListener("click", () => {
-    // Always save latest state before navigating
     localStorage.setItem("jee_nodes", JSON.stringify(nodes));
     window.location.href = "/exam";
+  });
+
+  // ── Solutions upload ────────────────────────────────────────────
+  function setSolStatus(msg, type = "info") {
+    const el = document.getElementById("solutionStatus");
+    el.textContent = msg;
+    el.className = type;
+  }
+
+  document.getElementById("solutionBtn").addEventListener("click", async () => {
+    const file = document.getElementById("solutionInput").files[0];
+    if (!file) { setSolStatus("Please select a solutions PDF first.", "error"); return; }
+
+    const btn = document.getElementById("solutionBtn");
+    btn.disabled = true; btn.textContent = "Parsing…";
+    setSolStatus("Uploading solutions…", "info");
+
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res  = await fetch(`${API}/upload_solutions`, { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Unknown error.");
+
+      localStorage.setItem("jee_solutions", JSON.stringify(data.answers));
+      setSolStatus(`✅ ${data.count} answers loaded from solutions PDF.`, "success");
+    } catch (err) {
+      setSolStatus(`Error: ${err.message}`, "error");
+    } finally {
+      btn.disabled = false; btn.textContent = "Upload Solutions";
+    }
   });
 </script>
 </body>
