@@ -27,6 +27,22 @@ def _is_noise(text: str) -> bool:
     return False
 
 
+# Subjects detected as separate structural partition nodes
+SUBJECT_KEYWORDS = re.compile(
+    r"\b(mathematics|physics|chemistry|maths)\b", re.IGNORECASE
+)
+
+
+def _is_subject_header(text: str) -> bool:
+    """
+    A line is a subject header if:
+      - it contains Mathematics / Physics / Chemistry / Maths
+      - AND is short (< 8 words) — avoids matching question text
+    """
+    s = text.strip()
+    return bool(SUBJECT_KEYWORDS.search(s)) and len(s.split()) < 8
+
+
 def _is_section_header(text: str) -> bool:
     """
     A line is a section header ONLY if:
@@ -40,6 +56,7 @@ def _is_section_header(text: str) -> bool:
 def _is_question_start(text: str) -> bool:
     s = text.strip()
     return bool(Q_START_REGEX.match(s)) and len(s) > 3
+
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -183,7 +200,27 @@ def build_questions(lines: list[dict]) -> list[dict]:
             i += 1
             continue
 
-        # 2. Section header — flush current question, emit section node
+        # 2. Subject header — highest priority structural partition
+        if _is_subject_header(text):
+            _flush_question()                          # close any open question
+
+            # Normalise subject name
+            match = SUBJECT_KEYWORDS.search(text)
+            name  = match.group(0).capitalize() if match else text.strip()
+
+            output.append({
+                "type":    "subject",
+                "subject": {"name": name, "raw": text.strip()},
+            })
+
+            # Reset section to default when subject changes
+            current_section = dict(DEFAULT_SECTION)
+
+            print(f"[SUBJECT] {name}")
+            i += 1
+            continue
+
+        # 3. Section header — flush current question, emit section node
         if _is_section_header(text):
             _flush_question()                          # close open question first
 
@@ -199,7 +236,7 @@ def build_questions(lines: list[dict]) -> list[dict]:
             i += 1                                     # consume only the header line
             continue
 
-        # 3. Question start — flush previous, open new with current_section snapshot
+        # 4. Question start — flush previous, open new with current_section snapshot
         if _is_question_start(text):
             _flush_question()
             pending_section = dict(current_section)    # snapshot HERE
@@ -208,7 +245,7 @@ def build_questions(lines: list[dict]) -> list[dict]:
             i += 1
             continue
 
-        # 4. Continuation — append to open question only
+        # 5. Continuation — append to open question only
         if pending_lines:
             pending_lines.append(lines[i])
 

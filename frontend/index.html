@@ -56,6 +56,34 @@
     /* ── Workspace ──────────────────────────────────────────────── */
     #workspace { display: flex; flex-direction: column; gap: 16px; }
 
+    /* ── Subject header block ───────────────────────────────────── */
+    .subject-block {
+      border-radius: 12px;
+      background: linear-gradient(135deg, #0f766e 0%, #0284c7 100%);
+      padding: 18px 22px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 2px 8px rgba(15,118,110,0.25);
+    }
+    .subject-block .subject-icon {
+      font-size: 28px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .subject-block .subject-name {
+      font-size: 18px;
+      font-weight: 800;
+      color: white;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .subject-block .subject-raw {
+      font-size: 11px;
+      color: rgba(255,255,255,0.65);
+      margin-top: 2px;
+    }
+
     /* ── Section header block ───────────────────────────────────── */
     .section-block {
       border-radius: 10px;
@@ -171,6 +199,13 @@
     el.className = type;
   }
 
+  const SUBJECT_ICONS = {
+    Mathematics: "📐",
+    Maths:       "📐",
+    Physics:     "⚡",
+    Chemistry:   "🧪",
+  };
+
   // ── Answer type labels ─────────────────────────────────────────
   const TYPE_LABELS = {
     single_correct_mcq:   "Single Correct",
@@ -244,6 +279,26 @@
     const qNodes = nodes.filter(n => n.type === "question");
 
     nodes.forEach((node, ni) => {
+
+      // ── Subject node ────────────────────────────────────────────
+      if (node.type === "subject") {
+        const sub   = node.subject;
+        const icon  = SUBJECT_ICONS[sub.name] || "📘";
+
+        const block = document.createElement("div");
+        block.className = "subject-block";
+        block.innerHTML = `
+          <div class="subject-icon">${icon}</div>
+          <div>
+            <div class="subject-name">${sub.name}</div>
+            ${sub.raw !== sub.name
+              ? `<div class="subject-raw">${sub.raw}</div>`
+              : ""}
+          </div>
+        `;
+        ws.appendChild(block);
+        return;
+      }
 
       // ── Section node ────────────────────────────────────────────
       if (node.type === "section") {

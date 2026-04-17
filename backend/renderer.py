@@ -83,6 +83,11 @@ def render_questions(doc: fitz.Document, nodes: list[dict]) -> list[dict]:
 
     for node in nodes:
 
+        # ── Subject node — pass through ───────────────────────────────────────
+        if node["type"] == "subject":
+            output.append({"type": "subject", "subject": node["subject"]})
+            continue
+
         # ── Section node — pass through ───────────────────────────────────────
         if node["type"] == "section":
             output.append({
