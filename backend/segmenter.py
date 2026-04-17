@@ -28,8 +28,13 @@ def _is_noise(text: str) -> bool:
 
 
 def _is_section_header(text: str) -> bool:
-    """A line is a section header if it contains the word SECTION."""
-    return "SECTION" in text.upper()
+    """
+    A line is a section header ONLY if:
+      - contains 'section' (case-insensitive)
+      - AND is short (< 10 words) — avoids matching question text that mentions sections
+    """
+    s = text.strip()
+    return "section" in s.lower() and len(s.split()) < 10
 
 
 def _is_question_start(text: str) -> bool:
@@ -38,69 +43,126 @@ def _is_question_start(text: str) -> bool:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# SECTION PARSER  — two-line: header + description
+# SECTION PARSER  — scoring-based, structure-aware
 # ─────────────────────────────────────────────────────────────────────────────
+
+def _normalize(text: str) -> str:
+    """Lowercase and strip punctuation that obscures keyword matching."""
+    return (
+        text.lower()
+        .replace("(", " ")
+        .replace(")", " ")
+        .replace("-", " ")
+        .replace(":", " ")
+        .replace("_", " ")
+    )
+
+
+def _is_block_noise(text: str) -> bool:
+    """Filter lines that would pollute the section description block."""
+    t = text.strip()
+    if not t:
+        return True
+    # Looks like a question (not instructions)
+    if "which of the following" in t.lower():
+        return True
+    # Ends with a question mark — likely question text
+    if t.endswith("?"):
+        return True
+    # Too long to be instructions
+    if len(t.split()) > 20:
+        return True
+    return False
+
+
+def _extract_section_block(lines: list[dict], i: int) -> str:
+    """
+    Collect up to 10 lines after the section header (index i) to form
+    a description block.  Stops when a question start or another section
+    header is encountered.  Noise lines are skipped in-place (not included
+    but do not terminate the scan).
+    """
+    block: list[str] = []
+    for j in range(i + 1, min(i + 10, len(lines))):
+        t = lines[j]["text"].strip()
+        if _is_question_start(t):
+            break
+        if _is_section_header(t):
+            break
+        if not _is_block_noise(t):
+            block.append(t)
+    return " ".join(block)
+
+
+def _score_section_type(block: str) -> str:
+    """
+    Scoring-based classifier.  Each keyword adds a weighted score to one of
+    the four answer types.  The winner is used; ties broken by first match.
+    Returns 'single_correct_mcq' when all scores are 0.
+    """
+    desc = _normalize(block)
+
+    score: dict[str, int] = {
+        "multiple_correct_mcq": 0,
+        "single_correct_mcq":   0,
+        "integer_type":         0,
+        "numerical_type":       0,
+    }
+
+    # Multiple correct signals
+    if "more than one" in desc:          score["multiple_correct_mcq"] += 2
+    if "one or more" in desc:            score["multiple_correct_mcq"] += 2
+    if "multiple correct" in desc:       score["multiple_correct_mcq"] += 3
+    if "multiple choice" in desc:        score["multiple_correct_mcq"] += 1
+
+    # Single correct signals
+    if "single correct" in desc:         score["single_correct_mcq"] += 3
+    if "only one correct" in desc:       score["single_correct_mcq"] += 3
+    if "one correct" in desc and "more" not in desc:
+                                         score["single_correct_mcq"] += 2
+
+    # Integer type signals
+    if "integer" in desc:                score["integer_type"] += 3
+    if "single digit" in desc:           score["integer_type"] += 2
+
+    # Numerical type signals
+    if "numerical" in desc:              score["numerical_type"] += 3
+    if "decimal" in desc:                score["numerical_type"] += 2
+    if "non negative" in desc:           score["numerical_type"] += 1
+    if "non-negative" in desc:           score["numerical_type"] += 1
+
+    print(f"[SECTION BLOCK] {desc[:120]}")
+    print(f"[SCORES] {score}")
+
+    winner = max(score, key=score.get)
+    answer_type = winner if score[winner] > 0 else "single_correct_mcq"
+
+    print(f"[TYPE] {answer_type}")
+    return answer_type
+
 
 def _parse_section(lines: list[dict], i: int) -> tuple[dict, int]:
     """
-    Parse a section starting at index i.
+    Parse a section header at index i.
 
-    Reads:
-      lines[i]   → title  (contains "SECTION")
-      lines[i+1] → description (if present and not a question / noise)
-
-    Returns (section_dict, new_index) where new_index points to the line
-    AFTER whatever was consumed.
+    Extracts the multi-line description block that follows the header and
+    classifies it using the scoring system.  The header line itself is always
+    consumed; consumed count returned so the caller can advance the index.
     """
     title = lines[i]["text"].strip()
-
-    desc = ""
-    consumed = 1  # we always consume at least the header line
-
-    if i + 1 < len(lines):
-        nxt = lines[i + 1]["text"].strip()
-        # Only consume the next line as description if it is not a question
-        # and does not itself look like another section header
-        if (not _is_question_start(nxt)
-                and not _is_section_header(nxt)
-                and not _is_noise(nxt)):
-            desc = nxt.lower()
-            consumed = 2  # consumed header + description
-
-    # Map description → answer_type using simple substring checks (per spec)
-    if "one or more than one correct" in desc:
-        answer_type = "multiple_correct_mcq"
-    elif "one or more correct" in desc:
-        answer_type = "multiple_correct_mcq"
-    elif "multiple correct" in desc:
-        answer_type = "multiple_correct_mcq"
-    elif "single correct" in desc:
-        answer_type = "single_correct_mcq"
-    elif "single digit integer" in desc:
-        answer_type = "integer_type"
-    elif "integer" in desc:
-        answer_type = "integer_type"
-    elif "numerical" in desc or "decimal" in desc:
-        answer_type = "numerical_type"
-    else:
-        # Fallback: also check the title itself
-        title_lower = title.lower()
-        if "one or more" in title_lower or "multiple correct" in title_lower:
-            answer_type = "multiple_correct_mcq"
-        elif "integer" in title_lower:
-            answer_type = "integer_type"
-        elif "numerical" in title_lower or "decimal" in title_lower:
-            answer_type = "numerical_type"
-        else:
-            answer_type = "single_correct_mcq"
+    block = _extract_section_block(lines, i)
+    answer_type = _score_section_type(block)
 
     section = {
         "name": title,
-        "description": desc,
+        "description": block.strip(),
         "answer_type": answer_type,
     }
-
-    return section, consumed
+    # Always consume exactly 1 line (the header); the block lines are scanned
+    # but NOT consumed — they will be processed normally by the state machine
+    # (as continuation/noise) and will not trigger section re-detection because
+    # they do not pass _is_section_header.
+    return section, 1
 
 
 # ─────────────────────────────────────────────────────────────────────────────
