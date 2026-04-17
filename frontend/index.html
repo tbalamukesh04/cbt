@@ -53,6 +53,28 @@
     #status.error   { background: #fef2f2; color: #b91c1c; display: block; }
     #status.success { background: #f0fdf4; color: #15803d; display: block; }
 
+    /* ── Start Exam button ──────────────────────────────────────── */
+    #startExamBar {
+      display: none;
+      margin-top: 14px;
+      padding: 14px 0 0;
+      border-top: 1px solid #e2e8f0;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    #startExamBar.visible { display: flex; }
+    #startExamBar p { font-size: 13px; color: #475569; }
+    .btn-exam {
+      background: linear-gradient(135deg, #1a237e 0%, #3949ab 100%);
+      color: white; border: none; border-radius: 8px;
+      padding: 10px 24px; font-size: 14px; font-weight: 700;
+      cursor: pointer; white-space: nowrap;
+      box-shadow: 0 4px 12px rgba(26,35,126,0.3);
+      transition: box-shadow 0.15s, transform 0.1s;
+    }
+    .btn-exam:hover { box-shadow: 0 6px 18px rgba(26,35,126,0.4); transform: translateY(-1px); }
+
     /* ── Workspace ──────────────────────────────────────────────── */
     #workspace { display: flex; flex-direction: column; gap: 16px; }
 
@@ -184,6 +206,10 @@
       <button class="btn btn-primary" id="uploadBtn">Upload &amp; Parse</button>
     </div>
     <div id="status"></div>
+    <div id="startExamBar">
+      <p>✅ Paper parsed and ready. Review questions above or jump straight to the exam.</p>
+      <button class="btn-exam" id="startExamBtn">🎓 Start Exam →</button>
+    </div>
   </div>
 
   <div id="workspace"></div>
@@ -508,14 +534,24 @@
       nodes = data.nodes;
       render();
       setStatus(
-        `Parsed ${data.total} question${data.total !== 1 ? "s" : ""}. Use Merge to fix boundaries.`,
+        `Parsed ${data.total} question${data.total !== 1 ? "s" : ""}. Review below or click Start Exam.`,
         "success"
       );
+      // Save to localStorage and show Start Exam button
+      localStorage.setItem("jee_nodes", JSON.stringify(nodes));
+      document.getElementById("startExamBar").classList.add("visible");
     } catch (err) {
       setStatus(`Error: ${err.message}`, "error");
     } finally {
       btn.disabled = false; btn.textContent = "Upload & Parse";
     }
+  });
+
+  // ── Start Exam button ──────────────────────────────────────────
+  document.getElementById("startExamBtn").addEventListener("click", () => {
+    // Always save latest state before navigating
+    localStorage.setItem("jee_nodes", JSON.stringify(nodes));
+    window.location.href = "/exam";
   });
 </script>
 </body>

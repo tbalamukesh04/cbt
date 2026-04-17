@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JEE Mock Test</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue:    #1a237e;
+      --blue2:   #283593;
+      --accent:  #5c6bc0;
+      --green:   #2e7d32;
+      --red:     #c62828;
+      --purple:  #6a1b9a;
+      --grey:    #9e9e9e;
+      --orange:  #e65100;
+      --border:  #e0e0e0;
+      --bg:      #f5f5f5;
+      --white:   #ffffff;
+    }
+
+    body { font-family: 'Segoe UI', sans-serif; background: var(--bg);
+           height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* ── TOP HEADER ──────────────────────────────────────────────────────── */
+    #top-header {
+      background: linear-gradient(90deg, var(--blue) 0%, var(--blue2) 100%);
+      color: white; padding: 0 16px;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 52px; flex-shrink: 0;
+    }
+    #top-header h1 { font-size: 18px; font-weight: 700; letter-spacing: 0.02em; }
+    .top-right { display: flex; align-items: center; gap: 12px; }
+    .top-btn {
+      background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
+      color: white; padding: 5px 12px; border-radius: 4px; cursor: pointer;
+      font-size: 12px; font-weight: 600; transition: background 0.15s;
+    }
+    .top-btn:hover { background: rgba(255,255,255,0.25); }
+    .profile { display: flex; align-items: center; gap: 8px; }
+    .profile-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: #7986cb; display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 14px;
+    }
+    .profile-name { font-size: 13px; font-weight: 600; }
+
+    /* ── SUB HEADER ──────────────────────────────────────────────────────── */
+    #sub-header {
+      background: #eeeeee; border-bottom: 1px solid var(--border);
+      padding: 4px 16px; display: flex; align-items: center; gap: 12px;
+      height: 32px; flex-shrink: 0; font-size: 12px; color: #555;
+    }
+    #exam-name { font-weight: 600; color: #333; }
+
+    /* ── SECTION TABS ─────────────────────────────────────────────────────── */
+    #tabs-bar {
+      background: #fafafa; border-bottom: 2px solid var(--border);
+      display: flex; align-items: center; height: 40px; flex-shrink: 0;
+      padding: 0 8px;
+    }
+    #tabs-scroll {
+      display: flex; gap: 4px; overflow-x: auto; flex: 1;
+      scrollbar-width: none;
+    }
+    #tabs-scroll::-webkit-scrollbar { display: none; }
+    .sec-tab {
+      padding: 4px 12px; border-radius: 4px 4px 0 0;
+      border: 1px solid var(--border); border-bottom: none;
+      background: #e8eaf6; cursor: pointer; font-size: 12px; font-weight: 600;
+      color: #3949ab; white-space: nowrap;
+      transition: background 0.15s, color 0.15s;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .sec-tab:hover { background: #c5cae9; }
+    .sec-tab.active { background: var(--white); color: var(--blue); border-bottom: 2px solid var(--white); }
+    .tab-badge {
+      background: #3949ab; color: white; border-radius: 10px;
+      padding: 1px 6px; font-size: 10px; font-weight: 700;
+    }
+    .sec-tab.active .tab-badge { background: var(--blue); }
+
+    #timer-box {
+      flex-shrink: 0; margin-left: 12px; padding: 4px 12px;
+      background: #fff3e0; border: 1px solid #ffcc80; border-radius: 4px;
+      font-size: 12px; font-weight: 700; color: #e65100;
+    }
+
+    /* ── MAIN BODY ───────────────────────────────────────────────────────── */
+    #main-body {
+      display: flex; flex: 1; overflow: hidden;
+    }
+
+    /* ── QUESTION PANEL (left) ──────────────────────────────────────────── */
+    #question-panel {
+      flex: 1; display: flex; flex-direction: column; overflow: hidden;
+      border-right: 2px solid var(--border);
+    }
+
+    #q-toolbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 14px; background: #e8eaf6; border-bottom: 1px solid var(--border);
+      font-size: 12px;
+    }
+    #q-number-label { font-size: 14px; font-weight: 700; color: var(--blue); }
+    #q-toolbar-right { display: flex; align-items: center; gap: 10px; }
+    .view-select {
+      font-size: 12px; padding: 3px 8px; border-radius: 4px;
+      border: 1px solid var(--border); background: white;
+    }
+    .q-icon-btn {
+      background: none; border: 1px solid #9fa8da; border-radius: 4px;
+      padding: 3px 8px; cursor: pointer; color: #3949ab; font-size: 12px;
+    }
+
+    #q-scroll { flex: 1; overflow-y: auto; padding: 16px; }
+
+    /* Section instruction box */
+    .section-instr-box {
+      border: 1px solid #9fa8da; border-radius: 4px; padding: 12px 16px;
+      margin-bottom: 16px; background: #e8eaf6; font-size: 12px; line-height: 1.6;
+    }
+    .section-instr-box h4 { font-size: 13px; color: var(--blue); margin-bottom: 6px; }
+    .section-instr-box .marking-row {
+      display: flex; gap: 24px; margin-top: 8px;
+    }
+    .mark-chip {
+      display: flex; align-items: center; gap: 6px; font-weight: 600;
+    }
+    .mark-chip .dot {
+      width: 10px; height: 10px; border-radius: 50%;
+    }
+    .mark-chip.correct .dot { background: var(--green); }
+    .mark-chip.zero .dot    { background: var(--grey); }
+    .mark-chip.neg .dot     { background: var(--red); }
+
+    /* Question image */
+    .q-image-wrap { margin-bottom: 14px; }
+    .q-image-wrap img {
+      max-width: 100%; display: block;
+      border: 1px solid var(--border); border-radius: 4px;
+    }
+
+    /* Answer options */
+    .answer-area { margin-top: 8px; }
+    .answer-area .answer-label {
+      font-size: 12px; font-weight: 700; color: #555; margin-bottom: 8px;
+    }
+    .options-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .option-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px;
+      cursor: pointer; transition: background 0.12s, border-color 0.12s;
+      background: white;
+    }
+    .option-row:hover { background: #e8eaf6; border-color: #9fa8da; }
+    .option-row.selected-single { background: #e3f2fd; border-color: #1565c0; }
+    .option-row.selected-multi  { background: #f3e5f5; border-color: #7b1fa2; }
+
+    .opt-circle {
+      width: 22px; height: 22px; border-radius: 50%;
+      border: 2px solid #9fa8da; display: flex; align-items: center;
+      justify-content: center; font-size: 12px; font-weight: 700;
+      color: #3949ab; flex-shrink: 0;
+    }
+    .option-row.selected-single .opt-circle { background: #1565c0; border-color: #1565c0; color: white; }
+    .option-row.selected-multi  .opt-circle { background: #7b1fa2; border-color: #7b1fa2; color: white; }
+    .opt-square {
+      width: 20px; height: 20px; border-radius: 3px;
+      border: 2px solid #9fa8da; display: flex; align-items: center;
+      justify-content: center; flex-shrink: 0;
+    }
+    .option-row.selected-multi .opt-square { background: #7b1fa2; border-color: #7b1fa2; }
+    .opt-check { font-size: 13px; color: white; }
+
+    .num-answer-wrap { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+    .num-answer-input {
+      width: 180px; padding: 8px 12px; border: 2px solid var(--border);
+      border-radius: 6px; font-size: 15px; outline: none;
+      transition: border-color 0.15s;
+    }
+    .num-answer-input:focus { border-color: #3949ab; }
+
+    /* ── QUESTION NAV FOOTER ────────────────────────────────────────────── */
+    #q-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 14px; background: #eeeeee; border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .footer-left { display: flex; gap: 8px; }
+    .footer-right { display: flex; gap: 8px; }
+
+    .btn { padding: 7px 16px; border-radius: 4px; border: none;
+           cursor: pointer; font-size: 12px; font-weight: 700; transition: opacity 0.15s; }
+    .btn:hover { opacity: 0.85; }
+    .btn-mark   { background: #7b1fa2; color: white; }
+    .btn-clear  { background: #757575; color: white; }
+    .btn-next   { background: #1565c0; color: white; }
+    .btn-prev   { background: var(--accent); color: white; }
+    .btn-submit { background: #2e7d32; color: white; font-size: 13px; padding: 7px 22px; }
+
+    /* ── PALETTE PANEL (right) ──────────────────────────────────────────── */
+    #palette-panel {
+      width: 260px; flex-shrink: 0; display: flex; flex-direction: column;
+      overflow: hidden; background: white;
+    }
+
+    /* Legend */
+    #legend {
+      padding: 10px 12px; border-bottom: 1px solid var(--border);
+      display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+      font-size: 11px;
+    }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .legend-dot {
+      width: 20px; height: 20px; border-radius: 50%;
+      flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+      font-size: 10px; color: white; font-weight: 700;
+    }
+    .l-answered      { background: var(--green); }
+    .l-not-answered  { background: var(--red); }
+    .l-not-visited   { background: var(--grey); }
+    .l-marked        { background: var(--purple); }
+    .l-ans-marked    { background: var(--purple); border: 2px solid var(--green); }
+
+    /* Section name in palette */
+    #palette-section-name {
+      padding: 6px 12px; background: #e8eaf6;
+      font-size: 12px; font-weight: 700; color: var(--blue);
+      border-bottom: 1px solid var(--border);
+    }
+    #palette-choose { padding: 4px 12px 2px; font-size: 11px; color: #666; }
+
+    /* Question palette grid */
+    #palette-grid {
+      flex: 1; padding: 8px 12px; overflow-y: auto;
+      display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start;
+    }
+
+    .pq-btn {
+      width: 36px; height: 36px; border-radius: 50%; border: none;
+      font-size: 12px; font-weight: 700; cursor: pointer;
+      color: white; transition: transform 0.1s;
+    }
+    .pq-btn:hover { transform: scale(1.1); }
+    .pq-btn.not_visited   { background: var(--grey); }
+    .pq-btn.not_answered  { background: var(--red); }
+    .pq-btn.answered      { background: var(--green); }
+    .pq-btn.marked        { background: var(--purple); }
+    .pq-btn.answered_marked {
+      background: var(--purple);
+      box-shadow: 0 0 0 3px var(--green);
+    }
+    .pq-btn.active-q { box-shadow: 0 0 0 2px #ffd600, 0 0 0 4px #f57f17; }
+
+    #palette-footer {
+      padding: 8px 12px; border-top: 1px solid var(--border);
+      display: flex; flex-direction: column; gap: 6px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- TOP HEADER -->
+<div id="top-header">
+  <h1>🎓&nbsp; JEE Mock Test</h1>
+  <div class="top-right">
+    <button class="top-btn" id="btnQuestionPaper">📄 Question Paper</button>
+    <button class="top-btn" id="btnInstructions">ℹ️ Instructions</button>
+    <div class="profile">
+      <div class="profile-avatar" id="profileAvatar">S</div>
+      <div class="profile-name" id="profileName">Student</div>
+    </div>
+  </div>
+</div>
+
+<!-- SUB HEADER -->
+<div id="sub-header">
+  <span>Paper 1</span>
+  <span id="exam-name">JEE Mock Test</span>
+</div>
+
+<!-- SECTION TABS + TIMER -->
+<div id="tabs-bar">
+  <div id="tabs-scroll"><!-- tabs injected here --></div>
+  <div id="timer-box">⏱ Time Left: <span id="timer-display">03:00:00</span></div>
+</div>
+
+<!-- MAIN BODY -->
+<div id="main-body">
+
+  <!-- LEFT: QUESTION PANEL -->
+  <div id="question-panel">
+    <div id="q-toolbar">
+      <span id="q-number-label">Question No. 1</span>
+      <div id="q-toolbar-right">
+        <select class="view-select"><option>View in: English</option></select>
+        <button class="q-icon-btn">🔖</button>
+      </div>
+    </div>
+    <div id="q-scroll">
+      <!-- Content rendered by JS -->
+    </div>
+    <div id="q-footer">
+      <div class="footer-left">
+        <button class="btn btn-mark"  id="btnMark">📌 Mark for Review &amp; Next</button>
+        <button class="btn btn-clear" id="btnClear">✖ Clear Response</button>
+      </div>
+      <div class="footer-right">
+        <button class="btn btn-prev"   id="btnPrev">← Previous</button>
+        <button class="btn btn-next"   id="btnNext">Save &amp; Next →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: PALETTE PANEL -->
+  <div id="palette-panel">
+    <div id="legend">
+      <div class="legend-item"><div class="legend-dot l-answered">1</div> Answered</div>
+      <div class="legend-item"><div class="legend-dot l-not-answered">1</div> Not Answered</div>
+      <div class="legend-item"><div class="legend-dot l-not-visited">1</div> Not Visited</div>
+      <div class="legend-item"><div class="legend-dot l-marked">1</div> Marked for Review</div>
+      <div class="legend-item" style="grid-column:span 2">
+        <div class="legend-dot l-ans-marked">✓</div> Answered &amp; Marked for Review
+      </div>
+    </div>
+    <div id="palette-section-name">— Select a Section —</div>
+    <div id="palette-choose">Choose a Question</div>
+    <div id="palette-grid"><!-- buttons --></div>
+    <div id="palette-footer">
+      <button class="btn btn-submit" id="btnSubmit2" style="width:100%">🏁 Submit Exam</button>
+    </div>
+  </div>
+
+</div><!-- /main-body -->
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════════
+// DATA LOADING
+// ═══════════════════════════════════════════════════════════════════════════════
+const raw = JSON.parse(localStorage.getItem("jee_nodes") || "[]");
+
+// ── Subject abbreviation map ──
+const ABBREV = { Physics: "Phy", Chemistry: "Chem", Mathematics: "Math", Maths: "Math" };
+
+// ── Group nodes into tabs: [{tabId, tabLabel, subject, sectionMeta, questions}] ──
+function buildTabs(nodes) {
+  const tabs = [];
+  let currentSubject = "";
+  let sectionCountBySubject = {};
+  let currentTab = null;
+
+  nodes.forEach(node => {
+    if (node.type === "subject") {
+      currentSubject = node.subject.name;
+      if (!sectionCountBySubject[currentSubject]) sectionCountBySubject[currentSubject] = 0;
+    } else if (node.type === "section") {
+      const abbrev = ABBREV[currentSubject] || currentSubject.slice(0, 4);
+      sectionCountBySubject[currentSubject] = (sectionCountBySubject[currentSubject] || 0) + 1;
+      const n = sectionCountBySubject[currentSubject];
+      currentTab = {
+        tabId: `tab_${tabs.length}`,
+        tabLabel: currentSubject ? `${abbrev} Sec ${n}` : (node.section.name || `Sec ${n}`),
+        subject: currentSubject,
+        sectionMeta: node.section,
+        questions: [],
+      };
+      tabs.push(currentTab);
+    } else if (node.type === "question") {
+      if (!currentTab) {
+        // Questions before any section — put in a default tab
+        currentTab = {
+          tabId: `tab_0`, tabLabel: "Questions", subject: "",
+          sectionMeta: node.section || { name: "General", description: "", answer_type: "single_correct_mcq" },
+          questions: [],
+        };
+        tabs.push(currentTab);
+      }
+      currentTab.questions.push(node);
+    }
+  });
+
+  return tabs;
+}
+
+const tabs = buildTabs(raw).filter(t => t.questions.length > 0);
+
+// ── Per-question state ──
+// state: 'not_visited' | 'not_answered' | 'answered' | 'marked' | 'answered_marked'
+const qState  = {};  // qId → state string
+const qAnswer = {};  // qId → answer value
+
+tabs.forEach(tab => tab.questions.forEach(q => {
+  qState[q.id]  = "not_visited";
+  qAnswer[q.id] = null;
+}));
+
+// ── Current position ──
+let activeTabIdx = 0;
+let activeQIdx   = 0;   // within active tab
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TIMER
+// ═══════════════════════════════════════════════════════════════════════════════
+let secondsLeft = 3 * 60 * 60;  // 3 hours default
+const timerEl = document.getElementById("timer-display");
+
+function formatTime(s) {
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return [h, m, sec].map(v => String(v).padStart(2, "0")).join(":");
+}
+
+const timerInterval = setInterval(() => {
+  if (secondsLeft <= 0) { clearInterval(timerInterval); autoSubmit(); return; }
+  secondsLeft--;
+  timerEl.textContent = formatTime(secondsLeft);
+  if (secondsLeft <= 300) timerEl.parentElement.style.background = "#ffebee";
+}, 1000);
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TAB RENDERING
+// ═══════════════════════════════════════════════════════════════════════════════
+function renderTabs() {
+  const container = document.getElementById("tabs-scroll");
+  container.innerHTML = "";
+  tabs.forEach((tab, idx) => {
+    const el = document.createElement("div");
+    el.className = "sec-tab" + (idx === activeTabIdx ? " active" : "");
+    el.innerHTML = `${tab.tabLabel} <span class="tab-badge">${tab.questions.length}</span>`;
+    el.addEventListener("click", () => { activeTabIdx = idx; activeQIdx = 0; render(); });
+    container.appendChild(el);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PALETTE RENDERING
+// ═══════════════════════════════════════════════════════════════════════════════
+function renderPalette() {
+  const tab = tabs[activeTabIdx];
+  if (!tab) return;
+  document.getElementById("palette-section-name").textContent = tab.tabLabel;
+
+  const grid = document.getElementById("palette-grid");
+  grid.innerHTML = "";
+  tab.questions.forEach((q, qi) => {
+    const btn = document.createElement("button");
+    btn.className = `pq-btn ${qState[q.id] || "not_visited"}`;
+    if (qi === activeQIdx) btn.classList.add("active-q");
+    btn.textContent = qi + 1;
+    btn.title = `Question ${qi + 1}`;
+    btn.addEventListener("click", () => { activeQIdx = qi; render(); });
+    grid.appendChild(btn);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ANSWER TYPE DETECTION
+// ═══════════════════════════════════════════════════════════════════════════════
+function getAnswerType(q) {
+  return (q.section && q.section.answer_type) || "single_correct_mcq";
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ANSWER UI BUILDERS (strict separation — no shared code)
+// ═══════════════════════════════════════════════════════════════════════════════
+const OPTIONS = ["A", "B", "C", "D"];
+
+function buildSingleSelect(q) {
+  const wrap = document.createElement("div");
+  wrap.className = "answer-area";
+  const lbl = document.createElement("div");
+  lbl.className = "answer-label";
+  lbl.textContent = "Choose one correct option:";
+  wrap.appendChild(lbl);
+
+  const list = document.createElement("div");
+  list.className = "options-list";
+
+  OPTIONS.forEach(opt => {
+    const row = document.createElement("div");
+    row.className = "option-row" + (qAnswer[q.id] === opt ? " selected-single" : "");
+    row.dataset.opt = opt;
+
+    const circle = document.createElement("div");
+    circle.className = "opt-circle";
+    circle.textContent = opt;
+
+    const label = document.createElement("span");
+    label.textContent = `Option ${opt}`;
+    label.style.fontSize = "13px";
+
+    row.appendChild(circle);
+    row.appendChild(label);
+
+    row.addEventListener("click", () => {
+      // OVERWRITE — single value, never accumulate
+      qAnswer[q.id] = opt;
+      console.log("TYPE: single_correct_mcq  SELECTED:", opt);
+
+      // Update siblings in-place
+      list.querySelectorAll(".option-row").forEach(r => {
+        const isThis = r.dataset.opt === opt;
+        r.classList.toggle("selected-single", isThis);
+        r.querySelector(".opt-circle").style.background    = isThis ? "#1565c0" : "";
+        r.querySelector(".opt-circle").style.borderColor   = isThis ? "#1565c0" : "";
+        r.querySelector(".opt-circle").style.color         = isThis ? "white" : "";
+      });
+
+      if (qState[q.id] !== "marked" && qState[q.id] !== "answered_marked") {
+        qState[q.id] = "answered";
+      } else {
+        qState[q.id] = "answered_marked";
+      }
+      renderPalette();
+    });
+
+    list.appendChild(row);
+  });
+
+  wrap.appendChild(list);
+  return wrap;
+}
+
+function buildMultiSelect(q) {
+  if (!qAnswer[q.id] || typeof qAnswer[q.id] !== "object") qAnswer[q.id] = {};
+  const ans = qAnswer[q.id];
+
+  const wrap = document.createElement("div");
+  wrap.className = "answer-area";
+  const lbl = document.createElement("div");
+  lbl.className = "answer-label";
+  lbl.textContent = "Choose one or more correct options:";
+  wrap.appendChild(lbl);
+
+  const list = document.createElement("div");
+  list.className = "options-list";
+
+  OPTIONS.forEach(opt => {
+    const row = document.createElement("div");
+    row.className = "option-row" + (ans[opt] ? " selected-multi" : "");
+    row.dataset.opt = opt;
+
+    const square = document.createElement("div");
+    square.className = "opt-square";
+    if (ans[opt]) square.innerHTML = `<span class="opt-check">✓</span>`;
+
+    const label = document.createElement("span");
+    label.textContent = `Option ${opt}`;
+    label.style.fontSize = "13px";
+
+    row.appendChild(square);
+    row.appendChild(label);
+
+    row.addEventListener("click", () => {
+      ans[opt] = !ans[opt];
+      row.classList.toggle("selected-multi", ans[opt]);
+      square.innerHTML = ans[opt] ? `<span class="opt-check">✓</span>` : "";
+
+      const sel = OPTIONS.filter(o => ans[o]);
+      console.log("TYPE: multiple_correct_mcq  SELECTED:", sel);
+
+      const hasAny = sel.length > 0;
+      if (!hasAny) {
+        qState[q.id] = "not_answered";
+      } else if (qState[q.id] === "marked" || qState[q.id] === "answered_marked") {
+        qState[q.id] = "answered_marked";
+      } else {
+        qState[q.id] = "answered";
+      }
+      renderPalette();
+    });
+
+    list.appendChild(row);
+  });
+
+  wrap.appendChild(list);
+  return wrap;
+}
+
+function buildIntegerInput(q) {
+  if (qAnswer[q.id] === null) qAnswer[q.id] = "";
+  const wrap = document.createElement("div");
+  wrap.className = "answer-area";
+  const lbl = document.createElement("div");
+  lbl.className = "answer-label";
+  lbl.textContent = "Enter integer answer (0 – 9):";
+  wrap.appendChild(lbl);
+
+  const row = document.createElement("div");
+  row.className = "num-answer-wrap";
+  const inp = document.createElement("input");
+  inp.type = "number"; inp.step = "1"; inp.min = "0"; inp.max = "9";
+  inp.className = "num-answer-input";
+  inp.placeholder = "e.g. 7";
+  inp.value = qAnswer[q.id];
+
+  inp.addEventListener("input", () => {
+    const v = parseInt(inp.value, 10);
+    if (!isNaN(v)) {
+      const c = Math.max(0, Math.min(9, v));
+      inp.value = c;
+      qAnswer[q.id] = String(c);
+      qState[q.id] = "answered";
+    } else {
+      qAnswer[q.id] = "";
+      qState[q.id] = "not_answered";
+    }
+    renderPalette();
+  });
+
+  row.appendChild(inp);
+  wrap.appendChild(row);
+  return wrap;
+}
+
+function buildNumericalInput(q) {
+  if (qAnswer[q.id] === null) qAnswer[q.id] = "";
+  const wrap = document.createElement("div");
+  wrap.className = "answer-area";
+  const lbl = document.createElement("div");
+  lbl.className = "answer-label";
+  lbl.textContent = "Enter numerical answer (decimal):";
+  wrap.appendChild(lbl);
+
+  const row = document.createElement("div");
+  row.className = "num-answer-wrap";
+  const inp = document.createElement("input");
+  inp.type = "number"; inp.step = "any";
+  inp.className = "num-answer-input";
+  inp.placeholder = "e.g. 3.14";
+  inp.value = qAnswer[q.id];
+
+  inp.addEventListener("change", () => {
+    qAnswer[q.id] = inp.value;
+    qState[q.id] = inp.value !== "" ? "answered" : "not_answered";
+    renderPalette();
+  });
+
+  row.appendChild(inp);
+  wrap.appendChild(row);
+  return wrap;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECTION INSTRUCTION BOX (shown at top of each section's first question)
+// ═══════════════════════════════════════════════════════════════════════════════
+function buildInstrBox(sectionMeta) {
+  const aType = sectionMeta.answer_type;
+  const box = document.createElement("div");
+  box.className = "section-instr-box";
+
+  const heading = {
+    single_correct_mcq:   "ONLY ONE option is correct.",
+    multiple_correct_mcq: "One OR MORE options may be correct.",
+    integer_type:         "Answer is a Single Digit Integer (0–9).",
+    numerical_type:       "Answer is a Numerical/Decimal value.",
+  }[aType] || aType;
+
+  const marking = {
+    single_correct_mcq:   { correct: "+3", zero: "0", neg: "−1" },
+    multiple_correct_mcq: { correct: "+4 (full) / partial", zero: "0", neg: "−2" },
+    integer_type:         { correct: "+3", zero: "0", neg: "0" },
+    numerical_type:       { correct: "+4", zero: "0", neg: "0" },
+  }[aType] || { correct: "+3", zero: "0", neg: "−1" };
+
+  const desc = sectionMeta.description ? `<p style="margin-bottom:6px">${sectionMeta.description}</p>` : "";
+
+  box.innerHTML = `
+    <h4>📋 ${sectionMeta.name}</h4>
+    ${desc}
+    <p><strong>${heading}</strong></p>
+    <div class="marking-row">
+      <span class="mark-chip correct"><span class="dot"></span> Full Marks: ${marking.correct}</span>
+      <span class="mark-chip zero"><span class="dot"></span> Zero Marks: ${marking.zero}</span>
+      <span class="mark-chip neg"><span class="dot"></span> Negative: ${marking.neg}</span>
+    </div>
+  `;
+  return box;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// QUESTION RENDERING
+// ═══════════════════════════════════════════════════════════════════════════════
+function renderQuestion() {
+  const tab = tabs[activeTabIdx];
+  if (!tab || tab.questions.length === 0) {
+    document.getElementById("q-scroll").innerHTML =
+      "<p style='padding:20px;color:#888'>No questions in this section.</p>";
+    return;
+  }
+
+  const q = tab.questions[activeQIdx];
+
+  // Mark as visited
+  if (qState[q.id] === "not_visited") qState[q.id] = "not_answered";
+
+  document.getElementById("q-number-label").textContent = `Question No. ${activeQIdx + 1}`;
+
+  const scroll = document.getElementById("q-scroll");
+  scroll.innerHTML = "";
+
+  // Section instruction box — show only on first question of the section
+  if (activeQIdx === 0) {
+    scroll.appendChild(buildInstrBox(tab.sectionMeta));
+  }
+
+  // Question images
+  if (q.images && q.images.length > 0) {
+    q.images.forEach(src => {
+      const wrap = document.createElement("div");
+      wrap.className = "q-image-wrap";
+      const img = document.createElement("img");
+      img.src = src; img.alt = `Question ${activeQIdx + 1}`;
+      wrap.appendChild(img);
+      scroll.appendChild(wrap);
+    });
+  } else {
+    const ph = document.createElement("div");
+    ph.style.cssText = "padding:20px;background:#f5f5f5;border-radius:6px;color:#888;margin-bottom:12px;text-align:center;";
+    ph.textContent = "(Question image not available)";
+    scroll.appendChild(ph);
+  }
+
+  // Answer UI
+  const aType = getAnswerType(q);
+  let answerEl;
+  if      (aType === "single_correct_mcq")   answerEl = buildSingleSelect(q);
+  else if (aType === "multiple_correct_mcq")  answerEl = buildMultiSelect(q);
+  else if (aType === "integer_type")          answerEl = buildIntegerInput(q);
+  else if (aType === "numerical_type")        answerEl = buildNumericalInput(q);
+  else                                        answerEl = buildSingleSelect(q);
+
+  scroll.appendChild(answerEl);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NAVIGATION HELPERS
+// ═══════════════════════════════════════════════════════════════════════════════
+function currentQ() {
+  return tabs[activeTabIdx]?.questions[activeQIdx] || null;
+}
+
+function saveAndNext() {
+  const q = currentQ(); if (!q) return;
+  // State is already set by interaction; just advance
+  const tab = tabs[activeTabIdx];
+  if (activeQIdx < tab.questions.length - 1) {
+    activeQIdx++;
+  } else if (activeTabIdx < tabs.length - 1) {
+    activeTabIdx++;
+    activeQIdx = 0;
+  }
+  render();
+}
+
+function markAndNext() {
+  const q = currentQ(); if (!q) return;
+  const hasAnswer = checkHasAnswer(q);
+  qState[q.id] = hasAnswer ? "answered_marked" : "marked";
+  const tab = tabs[activeTabIdx];
+  if (activeQIdx < tab.questions.length - 1) {
+    activeQIdx++;
+  } else if (activeTabIdx < tabs.length - 1) {
+    activeTabIdx++;
+    activeQIdx = 0;
+  }
+  render();
+}
+
+function clearResponse() {
+  const q = currentQ(); if (!q) return;
+  qAnswer[q.id] = null;
+  qState[q.id] = "not_answered";
+  render();
+}
+
+function prev() {
+  if (activeQIdx > 0) {
+    activeQIdx--;
+  } else if (activeTabIdx > 0) {
+    activeTabIdx--;
+    activeQIdx = tabs[activeTabIdx].questions.length - 1;
+  }
+  render();
+}
+
+function checkHasAnswer(q) {
+  const a = qAnswer[q.id];
+  if (!a) return false;
+  const t = getAnswerType(q);
+  if (t === "multiple_correct_mcq") return Object.values(a).some(Boolean);
+  if (t === "integer_type" || t === "numerical_type") return a !== "";
+  return Boolean(a);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SUBMIT
+// ═══════════════════════════════════════════════════════════════════════════════
+function submitExam() {
+  const total     = tabs.reduce((s, t) => s + t.questions.length, 0);
+  const answered  = Object.values(qState).filter(s => s === "answered" || s === "answered_marked").length;
+  const marked    = Object.values(qState).filter(s => s === "marked").length;
+  const notVisited= Object.values(qState).filter(s => s === "not_visited").length;
+
+  if (!confirm(
+    `Submit Exam?\n\n` +
+    `Total:       ${total}\n` +
+    `Answered:    ${answered}\n` +
+    `Marked:      ${marked}\n` +
+    `Not Visited: ${notVisited}\n\n` +
+    `Are you sure?`
+  )) return;
+
+  clearInterval(timerInterval);
+  localStorage.setItem("jee_answers", JSON.stringify({ qAnswer, qState }));
+  alert("Exam submitted! Results saved.");
+  window.location.href = "/";
+}
+
+function autoSubmit() {
+  alert("⏰ Time's up! Exam auto-submitted.");
+  submitExam();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MAIN RENDER
+// ═══════════════════════════════════════════════════════════════════════════════
+function render() {
+  renderTabs();
+  renderQuestion();
+  renderPalette();
+}
+
+// ── Button wiring ──
+document.getElementById("btnNext").addEventListener("click", saveAndNext);
+document.getElementById("btnPrev").addEventListener("click", prev);
+document.getElementById("btnMark").addEventListener("click", markAndNext);
+document.getElementById("btnClear").addEventListener("click", clearResponse);
+document.getElementById("btnSubmit2").addEventListener("click", submitExam);
+
+// ── Handle empty state ──
+if (tabs.length === 0) {
+  document.getElementById("q-scroll").innerHTML = `
+    <div style="padding:40px;text-align:center;color:#888">
+      <p style="font-size:18px;margin-bottom:12px">📋 No questions loaded.</p>
+      <p>Please <a href="/" style="color:#3949ab">go back to the parser</a> and upload a PDF first.</p>
+    </div>`;
+  document.getElementById("tabs-scroll").innerHTML =
+    "<span style='padding:8px;color:#888;font-size:12px'>No sections found</span>";
+} else {
+  render();
+}
+</script>
+</body>
+</html>

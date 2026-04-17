@@ -23,6 +23,13 @@ async def root():
     resp.headers["Pragma"] = "no-cache"
     return resp
 
+@app.get("/exam", include_in_schema=False)
+async def exam():
+    resp = FileResponse(str(FRONTEND_DIR / "exam.html"))
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    resp.headers["Pragma"] = "no-cache"
+    return resp
+
 # ── CORS ─────────────────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
