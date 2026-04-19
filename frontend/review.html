@@ -417,6 +417,16 @@ function renderQuestion(entry) {
   const student    = qAnswerSaved[q.id] !== undefined ? qAnswerSaved[q.id] : null;
   const score      = gradeQuestion(aType, student, correct);
 
+  // ── Debug: open DevTools → Console to see this ───────────────────────────
+  console.log(
+    `[Review] Q${gNum} | type: ${aType}` +
+    ` | rawCorrect:`, rawCorrect,
+    `| correct:`, correct,
+    `| student:`, student,
+    `| score:`, score,
+    `| solutions keys:`, solutions ? Object.keys(solutions).slice(0,10).join(',') + '…' : 'NONE'
+  );
+
   // ── Nav bar ──────────────────────────────────────────
   document.title = `Q${gNum} — Review`;
   document.getElementById('nav-qnum').textContent   = gNum;
