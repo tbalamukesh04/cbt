@@ -173,14 +173,19 @@ async def upload_solutions(
         raise HTTPException(status_code=400, detail="Uploaded file is empty.")
 
     try:
-        global_answers, section_answers, debug_lines = parse_solutions(content)
+        global_answers, section_answers, debug_lines, solution_images = parse_solutions(content)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Solutions parse error: {e}")
 
     # JSON-serialisable flat answer key (string keys).
-    # Each entry is {parsed, hint} so the frontend can display solution text.
+    # Each entry: {parsed, hint, image} so the frontend can display
+    # the answer options, explanation text, AND a cropped solution image.
     answers_str = {
-        str(k): {"parsed": v.parsed, "hint": v.hint}
+        str(k): {
+            "parsed": v.parsed,
+            "hint":   v.hint,
+            "image":  solution_images.get(k),   # base64 PNG data URL or None
+        }
         for k, v in global_answers.items()
     }
 

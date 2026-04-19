@@ -132,19 +132,27 @@
     .sc-val.pos   { color: #16a34a; }
     .sc-val.neg   { color: #dc2626; }
     .sc-val.zero  { color: var(--muted); }
-    .sc-val.na    { color: var(--orange); }
+    .sc-val.na    { color: #1d4ed8; }
 
-    /* ── HINT / SOLUTION CARD ────── */
+    /* ── HINT / SOLUTION CARD ───── */
     #hint-card { border-left: 4px solid #7c3aed; }
-    #hint-body  { padding: 24px; }
+    #hint-body  { padding: 20px 24px; }
     .hint-label {
       font-size: 11px; font-weight: 700; text-transform: uppercase;
       letter-spacing: .08em; color: #7c3aed; margin-bottom: 14px;
       display: flex; align-items: center; gap: 6px;
     }
+    /* Solution image — same style as question images */
+    #sol-image-wrap img {
+      width: 100%; max-width: 820px; display: block;
+      margin: 0 auto 8px; border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+    #sol-image-wrap { margin-bottom: 12px; }
     .hint-text {
-      font-size: 14.5px; line-height: 1.85; color: #1e293b;
+      font-size: 14px; line-height: 1.85; color: #1e293b;
       white-space: pre-wrap; word-break: break-word;
+      background: #faf5ff; border-radius: 8px; padding: 12px 16px;
     }
     .hint-empty {
       font-size: 13px; color: var(--muted); font-style: italic;
@@ -215,6 +223,9 @@
     <div class="r-card-header">💡 Solution Explanation</div>
     <div id="hint-body">
       <div class="hint-label">📖 From Solutions PDF</div>
+      <!-- Solution image (cropped from PDF, same as question images) -->
+      <div id="sol-image-wrap"></div>
+      <!-- Fallback / supplementary text -->
       <div id="hint-text"></div>
     </div>
   </div>
@@ -318,6 +329,18 @@ function gradeQuestion(aType, studentAns, correctAns) {
   // correctAns is already unwrapped (array of letters or numeric string)
   if (correctAns === null || correctAns === undefined) return null;
 
+  // ── Type-mismatch guard ──────────────────────────────────────────────────
+  // Integer/numerical question but solutions give letters (or vice-versa)
+  // → numbering misalignment between question paper and solution PDF.
+  const isLetterAns  = Array.isArray(correctAns) &&
+                       correctAns.every(x => /^[A-D]$/i.test(String(x)));
+  const isNumericAns = !Array.isArray(correctAns) &&
+                       !isNaN(parseFloat(String(correctAns)));
+  const isIntegerQ   = aType === 'integer_type' || aType === 'numerical_type';
+  const isMcqQ       = aType === 'single_correct_mcq' || aType === 'multiple_correct_mcq';
+  if (isIntegerQ && isLetterAns)  return null;
+  if (isMcqQ    && isNumericAns) return null;
+
   if (aType === 'single_correct_mcq') {
     if (!studentAns) return 0;
     const c = (Array.isArray(correctAns) ? correctAns[0] : String(correctAns)).toUpperCase();
@@ -358,10 +381,18 @@ function gradeQuestion(aType, studentAns, correctAns) {
 // ═══════════════════════════════════════════════════════
 // FORMAT HELPERS
 // ═══════════════════════════════════════════════════════
-function fmtCorrect(ans) {
+function fmtCorrect(aType, ans) {
   if (ans === null || ans === undefined) return 'N/A';
-  if (Array.isArray(ans)) return ans.join(' + ');
-  return String(ans);
+  const displayVal   = Array.isArray(ans) ? ans.join(' + ') : String(ans);
+  // Type-mismatch: show the value but flag it (⚠️) so the user knows the PDFs
+  // may have different section numbering. Scoring still returns null for these.
+  const isLetterAns  = Array.isArray(ans) && ans.every(x => /^[A-D]$/i.test(String(x)));
+  const isNumericAns = !Array.isArray(ans) && !isNaN(parseFloat(String(ans)));
+  const isIntegerQ   = aType === 'integer_type' || aType === 'numerical_type';
+  const isMcqQ       = aType === 'single_correct_mcq' || aType === 'multiple_correct_mcq';
+  if ((isIntegerQ && isLetterAns) || (isMcqQ && isNumericAns))
+    return `⚠️ ${displayVal}`;
+  return displayVal;
 }
 
 function fmtStudent(aType, ans) {
@@ -471,7 +502,7 @@ function renderQuestion(entry) {
   }
 
   // ── Score summary ────────────────────────────────────
-  document.getElementById('sc-correct').textContent = fmtCorrect(correct);
+  document.getElementById('sc-correct').textContent = fmtCorrect(aType, correct);
   document.getElementById('sc-student').textContent = fmtStudent(aType, student);
 
   const marksEl = document.getElementById('sc-marks');
@@ -485,19 +516,30 @@ function renderQuestion(entry) {
     marksEl.textContent = '0'; marksEl.className = 'sc-val zero';
   }
 
-  // ── Hint / solution text ─────────────────────────────
-  const hintEl    = document.getElementById('hint-text');
-  const rawAnsObj = solutions ? solutions[String(gNum)] : null;
-  // hint lives on the full Answer object (solutions stores {parsed, hint})
-  const hintText  = (rawAnsObj && typeof rawAnsObj === 'object' && rawAnsObj.hint)
-                    ? rawAnsObj.hint.trim()
-                    : '';
-  if (hintText) {
-    hintEl.className   = 'hint-text';
-    hintEl.textContent = hintText;
+  // ── Hint card (solution image + optional text) ────────────────
+  const rawAnsObj   = solutions ? solutions[String(gNum)] : null;
+  const hintImgWrap = document.getElementById('sol-image-wrap');
+  const hintTextEl  = document.getElementById('hint-text');
+  hintImgWrap.innerHTML = '';
+  hintTextEl.innerHTML  = '';
+
+  const solImage = rawAnsObj?.image;   // base64 PNG data URL or null
+  const hintText = rawAnsObj?.hint ? rawAnsObj.hint.trim() : '';
+
+  if (solImage) {
+    // Image available — show it only (text extraction can include garbage like footers)
+    const img = document.createElement('img');
+    img.src = solImage;
+    img.alt = `Solution for Q${gNum}`;
+    hintImgWrap.appendChild(img);
+  } else if (hintText) {
+    // No image — fall back to extracted text
+    hintTextEl.className   = 'hint-text';
+    hintTextEl.textContent = hintText;
   } else {
-    hintEl.className   = 'hint-empty';
-    hintEl.textContent = 'No solution text was found for this question in the solutions PDF.';
+    // Nothing found
+    hintTextEl.className   = 'hint-empty';
+    hintTextEl.textContent = 'No solution was found for this question in the solutions PDF.';
   }
 }
 

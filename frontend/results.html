@@ -520,7 +520,19 @@ function getAnswerType(q) {
 function gradeQuestion(aType, studentAns, correctAns) {
   if (correctAns === undefined || correctAns === null) return null;
 
-  // ── Single correct MCQ ──────────────────────────────────────────────────
+  // ── Type-mismatch guard ──────────────────────────────────────────────────
+  // If the answer type expected by the question paper doesn't match what the
+  // solutions PDF provides (e.g. integer question but solution gave letters),
+  // the two documents are misaligned on this question number. Treat as no-key.
+  const isLetterAns  = Array.isArray(correctAns) &&
+                       correctAns.every(x => /^[A-D]$/i.test(String(x)));
+  const isNumericAns = !Array.isArray(correctAns) && !isNaN(parseFloat(String(correctAns)));
+  const isIntegerQ   = aType === 'integer_type' || aType === 'numerical_type';
+  const isMcqQ       = aType === 'single_correct_mcq' || aType === 'multiple_correct_mcq';
+
+  if (isIntegerQ && isLetterAns)  return null;  // letters for integer question
+  if (isMcqQ    && isNumericAns) return null;  // number for MCQ question
+
   if (aType === 'single_correct_mcq') {
     if (!studentAns) return 0;
     const correct = (Array.isArray(correctAns) ? correctAns[0] : String(correctAns)).toUpperCase();
@@ -584,10 +596,17 @@ function fmtStudent(aType, ans) {
   return String(ans) || null;
 }
 
-function fmtCorrect(ans) {
+function fmtCorrect(aType, ans) {
   if (ans === undefined || ans === null) return null;
-  if (Array.isArray(ans)) return ans.join(' + ');
-  return String(ans);
+  const displayVal   = Array.isArray(ans) ? ans.join(' + ') : String(ans);
+  // Type-mismatch: show the value but flag it so the user knows PDFs may be misaligned
+  const isLetterAns  = Array.isArray(ans) && ans.every(x => /^[A-D]$/i.test(String(x)));
+  const isNumericAns = !Array.isArray(ans) && !isNaN(parseFloat(String(ans)));
+  const isIntegerQ   = aType === 'integer_type' || aType === 'numerical_type';
+  const isMcqQ       = aType === 'single_correct_mcq' || aType === 'multiple_correct_mcq';
+  if ((isIntegerQ && isLetterAns) || (isMcqQ && isNumericAns))
+    return `⚠️ ${displayVal}`;
+  return displayVal;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -766,7 +785,7 @@ function renderTable() {
     else if (r.status === 'no-key')     tr.style.background = '#fffbeb';
 
     const studentFmt  = fmtStudent(r.aType, r.student);
-    const correctFmt  = fmtCorrect(r.correct);
+    const correctFmt  = fmtCorrect(r.aType, r.correct);
 
     // Marks chip
     let marksHtml;
