@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JEE Results — Analysis</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green:  #16a34a;
+      --red:    #dc2626;
+      --orange: #d97706;
+      --blue:   #1d4ed8;
+      --purple: #7c3aed;
+      --grey:   #6b7280;
+      --bg:     #f1f5f9;
+      --card:   #ffffff;
+      --border: #e2e8f0;
+      --text:   #0f172a;
+      --muted:  #64748b;
+    }
+
+    body {
+      font-family: 'Inter', 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── HEADER ─────────────────────────────────────────────────────────── */
+    #top-bar {
+      background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1d4ed8 100%);
+      color: white;
+      padding: 0 32px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 16px rgba(29,78,216,0.3);
+      position: sticky; top: 0; z-index: 100;
+    }
+    #top-bar h1 {
+      font-size: 20px; font-weight: 800; letter-spacing: 0.02em;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .top-actions { display: flex; gap: 10px; }
+    .top-btn {
+      padding: 8px 18px; border-radius: 8px; font-size: 13px; font-weight: 600;
+      cursor: pointer; border: none; transition: all 0.15s;
+    }
+    .top-btn.outline {
+      background: rgba(255,255,255,0.15); color: white;
+      border: 1px solid rgba(255,255,255,0.3);
+    }
+    .top-btn.outline:hover { background: rgba(255,255,255,0.25); }
+    .top-btn.solid {
+      background: #16a34a; color: white;
+    }
+    .top-btn.solid:hover { background: #15803d; }
+
+    /* ── MAIN LAYOUT ────────────────────────────────────────────────────── */
+    #main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 32px 24px 60px;
+    }
+
+    /* ── SCORE HERO ─────────────────────────────────────────────────────── */
+    #score-hero {
+      background: linear-gradient(135deg, #1e1b4b 0%, #1d4ed8 100%);
+      border-radius: 20px;
+      padding: 36px 40px;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 28px;
+      box-shadow: 0 8px 24px rgba(29,78,216,0.25);
+    }
+    #hero-left h2 {
+      font-size: 14px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.12em;
+      color: rgba(255,255,255,0.6); margin-bottom: 6px;
+    }
+    #hero-left .exam-title {
+      font-size: 26px; font-weight: 800; margin-bottom: 4px;
+    }
+    #hero-left .exam-sub {
+      font-size: 13px; color: rgba(255,255,255,0.55);
+    }
+    #hero-score {
+      text-align: center;
+      background: rgba(255,255,255,0.1);
+      border: 2px solid rgba(255,255,255,0.2);
+      border-radius: 16px;
+      padding: 24px 40px;
+      min-width: 180px;
+    }
+    #hero-score .score-val {
+      font-size: 48px; font-weight: 900; line-height: 1;
+    }
+    #hero-score .score-max {
+      font-size: 16px; font-weight: 500;
+      color: rgba(255,255,255,0.6); margin-top: 4px;
+    }
+    #hero-score .score-pct {
+      font-size: 13px; font-weight: 700;
+      background: rgba(255,255,255,0.15);
+      border-radius: 20px; padding: 3px 12px;
+      margin-top: 10px; display: inline-block;
+    }
+    #hero-stats {
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    .hero-stat {
+      display: flex; align-items: center; gap: 10px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 10px; padding: 10px 18px;
+    }
+    .hero-stat .stat-dot {
+      width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+    }
+    .hero-stat .stat-num {
+      font-size: 20px; font-weight: 800; min-width: 32px;
+    }
+    .hero-stat .stat-lbl {
+      font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.65);
+    }
+
+    /* ── STAT CARDS ─────────────────────────────────────────────────────── */
+    #stat-cards {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 16px; margin-bottom: 28px;
+    }
+    .stat-card {
+      background: var(--card); border-radius: 14px;
+      padding: 20px 24px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+      border-top: 4px solid transparent;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+    .stat-card.c-green { border-top-color: #16a34a; }
+    .stat-card.c-red   { border-top-color: #dc2626; }
+    .stat-card.c-orange{ border-top-color: #d97706; }
+    .stat-card.c-blue  { border-top-color: #1d4ed8; }
+    .stat-card .s-val  { font-size: 32px; font-weight: 900; line-height: 1; margin-bottom: 4px; }
+    .stat-card .s-lbl  { font-size: 12px; font-weight: 600; color: var(--muted);
+                         text-transform: uppercase; letter-spacing: 0.08em; }
+    .stat-card.c-green .s-val { color: #16a34a; }
+    .stat-card.c-red   .s-val { color: #dc2626; }
+    .stat-card.c-orange.s-val { color: #d97706; }
+    .stat-card.c-blue  .s-val { color: #1d4ed8; }
+
+    /* ── SECTION BREAKDOWN ──────────────────────────────────────────────── */
+    .section-head {
+      font-size: 16px; font-weight: 800; color: var(--text);
+      margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+    }
+    .section-head::after {
+      content: ""; flex: 1; height: 2px;
+      background: var(--border);
+    }
+
+    #section-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 14px; margin-bottom: 32px;
+    }
+    .sec-card {
+      background: var(--card); border-radius: 12px;
+      padding: 16px 18px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      border-left: 4px solid #6366f1;
+    }
+    .sec-card.phy { border-left-color: #2563eb; }
+    .sec-card.chem{ border-left-color: #16a34a; }
+    .sec-card.math{ border-left-color: #9333ea; }
+    .sec-card .sec-label {
+      font-size: 12px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.08em; color: var(--muted); margin-bottom: 8px;
+    }
+    .sec-card .sec-score {
+      font-size: 22px; font-weight: 900; color: var(--text);
+      display: flex; align-items: baseline; gap: 4px;
+    }
+    .sec-card .sec-score .denom { font-size: 14px; font-weight: 500; color: var(--muted); }
+    .sec-progress {
+      height: 6px; background: #e2e8f0; border-radius: 3px; margin: 8px 0;
+    }
+    .sec-progress-fill {
+      height: 100%; border-radius: 3px;
+      background: linear-gradient(90deg, #6366f1, #8b5cf6);
+      transition: width 0.6s ease;
+    }
+    .sec-meta { display: flex; gap: 10px; font-size: 11px; font-weight: 600; }
+    .sec-meta .m-c { color: #16a34a; }
+    .sec-meta .m-w { color: #dc2626; }
+    .sec-meta .m-u { color: var(--muted); }
+
+    /* ── QUESTION REVIEW TABLE ──────────────────────────────────────────── */
+    #review-wrap {
+      background: var(--card); border-radius: 14px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+      overflow: hidden;
+    }
+    #review-toolbar {
+      padding: 16px 20px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap; gap: 10px;
+    }
+    #review-title { font-size: 15px; font-weight: 700; }
+    .filter-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+    .pill {
+      padding: 4px 14px; border-radius: 20px; font-size: 12px;
+      font-weight: 600; cursor: pointer; border: 1.5px solid transparent;
+      transition: all 0.15s;
+    }
+    .pill.all    { background:#e0e7ff; color:#3730a3; border-color:#a5b4fc; }
+    .pill.correct{ background:#dcfce7; color:#166534; border-color:#86efac; }
+    .pill.wrong  { background:#fee2e2; color:#991b1b; border-color:#fca5a5; }
+    .pill.skip   { background:#f1f5f9; color:#475569; border-color:#cbd5e1; }
+    .pill.marked { background:#fef9c3; color:#854d0e; border-color:#fde047; }
+    .pill.active { box-shadow: 0 0 0 2px currentColor; }
+
+    #review-table-wrap { overflow-x: auto; }
+    #review-table {
+      width: 100%; border-collapse: collapse;
+      font-size: 13px;
+    }
+    #review-table th {
+      padding: 10px 14px; text-align: left;
+      background: #f8fafc; font-weight: 700;
+      color: var(--muted); font-size: 11px;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      border-bottom: 2px solid var(--border);
+      white-space: nowrap;
+    }
+    #review-table td {
+      padding: 10px 14px; border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    #review-table tr:last-child td { border-bottom: none; }
+    #review-table tr:hover td { background: #f8fafc; }
+
+    .q-num-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px; border-radius: 6px;
+      font-weight: 700; font-size: 12px; background: #e0e7ff; color: #3730a3;
+      text-decoration: none; transition: background .15s, transform .12s;
+      cursor: pointer;
+    }
+    .q-num-badge:hover { background: #c7d2fe; transform: scale(1.12); }
+    tr.clickable-row { cursor: pointer; }
+    tr.clickable-row:hover td { background: #f0f4ff !important; }
+    .ans-chip {
+      display: inline-block; padding: 2px 10px;
+      border-radius: 6px; font-weight: 700; font-size: 13px;
+    }
+    .ans-chip.student { background: #eff6ff; color: #1d4ed8; }
+    .ans-chip.correct { background: #dcfce7; color: #166534; }
+    .ans-chip.missing { background: #f1f5f9; color: #94a3b8; font-style: italic; }
+
+    .marks-chip {
+      display: inline-block; padding: 2px 10px;
+      border-radius: 20px; font-weight: 700; font-size: 12px;
+    }
+    .marks-chip.pos  { background: #dcfce7; color: #166534; }
+    .marks-chip.neg  { background: #fee2e2; color: #991b1b; }
+    .marks-chip.zero { background: #f1f5f9; color: #64748b; }
+    .marks-chip.na   { background: #fef9c3; color: #854d0e; }
+
+    .status-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700;
+    }
+    .status-badge.correct    { background: #dcfce7; color: #16a34a; }
+    .status-badge.wrong      { background: #fee2e2; color: #dc2626; }
+    .status-badge.unattempted{ background: #f1f5f9; color: #64748b; }
+    .status-badge.no-key     { background: #fef9c3; color: #d97706; }
+
+    /* ── SECTION TABS in filter ────────────────────────────────────────── */
+    #subject-tabs {
+      display: flex; gap: 0; margin-bottom: 0;
+      border-bottom: 2px solid var(--border);
+      background: #f8fafc; padding: 0 20px;
+    }
+    .sub-tab {
+      padding: 10px 18px; font-size: 13px; font-weight: 600;
+      cursor: pointer; border-bottom: 3px solid transparent;
+      color: var(--muted); transition: all 0.15s; margin-bottom: -2px;
+    }
+    .sub-tab:hover { color: #1d4ed8; }
+    .sub-tab.active { color: #1d4ed8; border-bottom-color: #1d4ed8; }
+
+    /* ── NO KEY WARNING ─────────────────────────────────────────────────── */
+    #no-key-banner {
+      display: none;
+      background: #fffbeb; border: 1px solid #fde68a;
+      border-radius: 10px; padding: 14px 20px;
+      margin-bottom: 20px; font-size: 13px; color: #92400e;
+    }
+    #no-key-banner.show { display: flex; gap: 10px; align-items: center; }
+  </style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div id="top-bar">
+  <h1>📊 Results &amp; Analysis</h1>
+  <div class="top-actions">
+    <button class="top-btn outline" onclick="window.location.href='/'">🏠 Home</button>
+    <button class="top-btn outline" onclick="window.print()">🖨 Print</button>
+  </div>
+</div>
+
+<div id="main">
+
+  <!-- NO KEY WARNING -->
+  <div id="no-key-banner">
+    ⚠️ No answer key uploaded — scores cannot be calculated. 
+    <a href="/" style="color:#1d4ed8;font-weight:700;margin-left:4px">Upload solutions PDF</a> first.
+  </div>
+
+  <!-- SCORE HERO -->
+  <div id="score-hero">
+    <div id="hero-left">
+      <h2>JEE Mock Test</h2>
+      <div class="exam-title" id="hero-title">Overall Performance</div>
+      <div class="exam-sub" id="hero-sub">Loading…</div>
+    </div>
+    <div id="hero-score">
+      <div class="score-val" id="hero-score-val">—</div>
+      <div class="score-max" id="hero-score-max">/ — marks</div>
+      <div class="score-pct" id="hero-score-pct">—%</div>
+    </div>
+    <div id="hero-stats">
+      <div class="hero-stat">
+        <div class="stat-dot" style="background:#4ade80"></div>
+        <div class="stat-num" id="hero-correct">—</div>
+        <div class="stat-lbl">Correct</div>
+      </div>
+      <div class="hero-stat">
+        <div class="stat-dot" style="background:#f87171"></div>
+        <div class="stat-num" id="hero-wrong">—</div>
+        <div class="stat-lbl">Wrong</div>
+      </div>
+      <div class="hero-stat">
+        <div class="stat-dot" style="background:#94a3b8"></div>
+        <div class="stat-num" id="hero-skip">—</div>
+        <div class="stat-lbl">Unattempted</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STAT CARDS -->
+  <div id="stat-cards">
+    <div class="stat-card c-green">
+      <div class="s-val" id="sc-score">—</div>
+      <div class="s-lbl">Total Score</div>
+    </div>
+    <div class="stat-card c-green">
+      <div class="s-val" id="sc-correct">—</div>
+      <div class="s-lbl">Correct</div>
+    </div>
+    <div class="stat-card c-red">
+      <div class="s-val" id="sc-wrong">—</div>
+      <div class="s-lbl">Incorrect</div>
+    </div>
+    <div class="stat-card c-orange">
+      <div class="s-val" id="sc-skip">—</div>
+      <div class="s-lbl">Unattempted</div>
+    </div>
+  </div>
+
+  <!-- SECTION BREAKDOWN -->
+  <div class="section-head">📂 Section-wise Breakdown</div>
+  <div id="section-grid"><!-- generated --></div>
+
+  <!-- PER-QUESTION REVIEW -->
+  <div class="section-head">🔍 Question-by-Question Review</div>
+
+  <div id="review-wrap">
+    <!-- Subject filter tabs -->
+    <div id="subject-tabs">
+      <div class="sub-tab active" data-subj="ALL" onclick="filterSubject('ALL')">All</div>
+    </div>
+
+    <!-- Filter pills -->
+    <div id="review-toolbar">
+      <div id="review-title">All Questions</div>
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+        <span style="font-size:11px;color:#94a3b8;font-weight:500">💡 Click any row to review</span>
+        <div class="filter-pills">
+          <div class="pill all    active" onclick="filterStatus('all')"   >All</div>
+          <div class="pill correct"       onclick="filterStatus('correct')">✓ Correct</div>
+          <div class="pill wrong"         onclick="filterStatus('wrong')"  >✗ Wrong</div>
+          <div class="pill skip"          onclick="filterStatus('skip')"   >− Skipped</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="review-table-wrap">
+      <table id="review-table">
+        <thead>
+          <tr>
+            <th>Q#</th>
+            <th>Section</th>
+            <th>Type</th>
+            <th>Your Answer</th>
+            <th>Correct Answer</th>
+            <th>Marks</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="review-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// LOAD DATA FROM LOCALSTORAGE
+// ═══════════════════════════════════════════════════════════════════════════
+const rawNodes  = JSON.parse(localStorage.getItem('jee_nodes')    || '[]');
+const solutions = JSON.parse(localStorage.getItem('jee_solutions') || 'null');
+const savedAns  = JSON.parse(localStorage.getItem('jee_answers')   || 'null');
+
+const qAnswerSaved = savedAns ? savedAns.qAnswer : {};
+const qStateSaved  = savedAns ? savedAns.qState  : {};
+
+const hasKey = solutions !== null && Object.keys(solutions).length > 0;
+if (!hasKey) document.getElementById('no-key-banner').classList.add('show');
+
+// ── Rebuild tabs (same logic as exam.html) ──────────────────────────────
+const ABBREV = { Physics:'Phy', Chemistry:'Chem', Mathematics:'Math', Maths:'Math' };
+
+function buildTabs(nodes) {
+  const tabs = [];
+  let currentSubject = '';
+  let sectionCountBySubject = {};
+  let currentTab = null;
+
+  nodes.forEach(node => {
+    if (node.type === 'subject') {
+      currentSubject = node.subject.name;
+      if (!sectionCountBySubject[currentSubject]) sectionCountBySubject[currentSubject] = 0;
+    } else if (node.type === 'section') {
+      const abbrev = ABBREV[currentSubject] || currentSubject.slice(0,4);
+      sectionCountBySubject[currentSubject] = (sectionCountBySubject[currentSubject] || 0) + 1;
+      const n = sectionCountBySubject[currentSubject];
+      currentTab = {
+        tabId: `tab_${tabs.length}`,
+        tabLabel: currentSubject ? `${abbrev} Sec ${n}` : (node.section.name || `Sec ${n}`),
+        subject: currentSubject,
+        sectionMeta: node.section,
+        questions: [],
+      };
+      tabs.push(currentTab);
+    } else if (node.type === 'question') {
+      if (!currentTab) {
+        currentTab = {
+          tabId:'tab_0', tabLabel:'Questions', subject:'',
+          sectionMeta: node.section || { name:'General', answer_type:'single_correct_mcq' },
+          questions: [],
+        };
+        tabs.push(currentTab);
+      }
+      currentTab.questions.push(node);
+    }
+  });
+  return tabs;
+}
+
+const tabs = buildTabs(rawNodes).filter(t => t.questions.length > 0);
+
+// ── Global question offset ──────────────────────────────────────────────
+function globalQNum(tabIdx, qIdx) {
+  let n = 0;
+  for (let i = 0; i < tabIdx; i++) n += tabs[i].questions.length;
+  return n + qIdx + 1;
+}
+
+// ── Unwrap Answer object {raw, parsed, confidence} → array/string ───────
+function unwrapAnswer(ans) {
+  if (ans === null || ans === undefined) return null;
+  if (Array.isArray(ans)) return ans;
+  if (typeof ans !== 'object') return ans;
+  if ('parsed' in ans) return ans.parsed;
+  return ans.raw || null;
+}
+
+function getAnswerType(q) {
+  return (q.section && q.section.answer_type) || 'single_correct_mcq';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GRADING ENGINE (identical to exam.html)
+// ───────────────────────────────────────────────────────────────────────────
+// Single correct MCQ:
+//   Correct option chosen  → +3
+//   Wrong option chosen    → −1
+//   Not attempted          → 0
+//
+// Multiple correct MCQ (n correct options in answer key):
+//   ANY wrong option chosen                        → −2  (overrides everything)
+//   0 options chosen                               → 0
+//   k correct chosen (no wrong), k < n            → +k  (+1 per correct option)
+//   All n correct chosen (no wrong)               → +4
+//
+// Integer type:   Exact match → +3,  else → 0
+// Numerical type: Within 1% tolerance → +4, else → 0
+// ═══════════════════════════════════════════════════════════════════════════
+function gradeQuestion(aType, studentAns, correctAns) {
+  if (correctAns === undefined || correctAns === null) return null;
+
+  // ── Single correct MCQ ──────────────────────────────────────────────────
+  if (aType === 'single_correct_mcq') {
+    if (!studentAns) return 0;
+    const correct = (Array.isArray(correctAns) ? correctAns[0] : String(correctAns)).toUpperCase();
+    return String(studentAns).toUpperCase() === correct ? 3 : -1;
+  }
+
+  // ── Multiple correct MCQ ────────────────────────────────────────────────
+  if (aType === 'multiple_correct_mcq') {
+    const ans = (typeof studentAns === 'object' && studentAns !== null) ? studentAns : {};
+    const selected = Object.keys(ans).filter(k => ans[k]).map(k => k.toUpperCase());
+
+    if (selected.length === 0) return 0;   // not attempted
+
+    const correctArr = Array.isArray(correctAns)
+      ? correctAns.map(x => String(x).toUpperCase())
+      : [String(correctAns).toUpperCase()];
+    const correctSet = new Set(correctArr);
+    const n = correctSet.size;
+
+    // Any wrong option chosen → −2
+    const wrongChosen = selected.filter(s => !correctSet.has(s));
+    if (wrongChosen.length > 0) return -2;
+
+    // No wrong options chosen
+    const rightChosen = selected.filter(s => correctSet.has(s));
+    const k = rightChosen.length;
+    if (k === n) return 4;   // all correct → +4
+    return k;                // partial → +k
+  }
+
+  // ── Integer type ─────────────────────────────────────────────────────────
+  if (aType === 'integer_type') {
+    if (studentAns === null || studentAns === '') return 0;
+    return parseInt(studentAns, 10) === parseInt(String(correctAns), 10) ? 3 : 0;
+  }
+
+  // ── Numerical type ───────────────────────────────────────────────────────
+  if (aType === 'numerical_type') {
+    if (studentAns === null || studentAns === '') return 0;
+    const cf = parseFloat(String(correctAns));
+    const sf = parseFloat(studentAns);
+    if (isNaN(cf) || isNaN(sf)) return 0;
+    const tol = Math.max(Math.abs(cf) * 0.01, 0.005);
+    return Math.abs(sf - cf) <= tol ? 4 : 0;
+  }
+
+  return 0;
+}
+
+function maxScore(aType) {
+  return { single_correct_mcq:3, multiple_correct_mcq:4, integer_type:3, numerical_type:4 }[aType] ?? 3;
+}
+
+function fmtStudent(aType, ans) {
+  if (ans === null || ans === undefined || ans === '') return null;
+  if (aType === 'multiple_correct_mcq') {
+    if (typeof ans !== 'object') return null;
+    const sel = Object.keys(ans).filter(k => ans[k]).sort();
+    return sel.length ? sel.join(' + ') : null;
+  }
+  return String(ans) || null;
+}
+
+function fmtCorrect(ans) {
+  if (ans === undefined || ans === null) return null;
+  if (Array.isArray(ans)) return ans.join(' + ');
+  return String(ans);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BUILD RESULTS
+// ═══════════════════════════════════════════════════════════════════════════
+let allRows = [];         // {gNum, tabLabel, subject, aType, student, correct, score, status}
+let sectionSummaries = [];
+
+tabs.forEach((tab, tabIdx) => {
+  let tabScore=0, tabMax=0, tabCorrect=0, tabWrong=0, tabSkip=0;
+
+  tab.questions.forEach((q, qi) => {
+    const gNum    = globalQNum(tabIdx, qi);
+    const aType   = getAnswerType(q);
+    const correct = hasKey ? unwrapAnswer(solutions[String(gNum)]) : null;
+    const student = qAnswerSaved[q.id] !== undefined ? qAnswerSaved[q.id] : null;
+    const score   = gradeQuestion(aType, student, correct);
+
+    tabMax += maxScore(aType);
+
+    let status = 'unattempted';
+    if (score === null) {
+      status = 'no-key';
+    } else if (score > 0) {
+      status = 'correct'; tabScore += score; tabCorrect++;
+    } else if (score < 0) {
+      status = 'wrong';   tabScore += score; tabWrong++;
+    } else {
+      // 0 score
+      const st = qStateSaved[q.id];
+      if (!student && (st === 'not_answered' || st === 'not_visited' || !st)) {
+        status = 'unattempted'; tabSkip++;
+      } else {
+        status = 'wrong'; tabWrong++;
+      }
+    }
+
+    allRows.push({ gNum, tabLabel: tab.tabLabel, subject: tab.subject, aType,
+                   student, correct, score, status });
+  });
+
+  sectionSummaries.push({
+    label: tab.tabLabel, subject: tab.subject,
+    score: tabScore, max: tabMax,
+    correct: tabCorrect, wrong: tabWrong, skip: tabSkip,
+    total: tab.questions.length,
+  });
+});
+
+const TOTAL_MAX  = sectionSummaries.reduce((s, t) => s + t.max, 0);
+const TOTAL_SCORE= sectionSummaries.reduce((s, t) => s + t.score, 0);
+const TOTAL_COR  = sectionSummaries.reduce((s, t) => s + t.correct, 0);
+const TOTAL_WRO  = sectionSummaries.reduce((s, t) => s + t.wrong, 0);
+const TOTAL_SKIP = sectionSummaries.reduce((s, t) => s + t.skip, 0);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RENDER HERO + STAT CARDS
+// ═══════════════════════════════════════════════════════════════════════════
+document.getElementById('hero-title').textContent     = 'JEE Mock Test Results';
+document.getElementById('hero-sub').textContent       =
+  `${allRows.length} questions · ${hasKey ? 'Full grading' : 'No answer key'}`;
+document.getElementById('hero-score-val').textContent = TOTAL_SCORE;
+document.getElementById('hero-score-max').textContent = `/ ${TOTAL_MAX} marks`;
+const pct = TOTAL_MAX > 0 ? Math.round(TOTAL_SCORE / TOTAL_MAX * 100) : 0;
+document.getElementById('hero-score-pct').textContent = `${pct}%`;
+document.getElementById('hero-correct').textContent   = TOTAL_COR;
+document.getElementById('hero-wrong').textContent     = TOTAL_WRO;
+document.getElementById('hero-skip').textContent      = TOTAL_SKIP;
+
+document.getElementById('sc-score').textContent  = TOTAL_SCORE;
+document.getElementById('sc-correct').textContent = TOTAL_COR;
+document.getElementById('sc-wrong').textContent   = TOTAL_WRO;
+document.getElementById('sc-skip').textContent    = TOTAL_SKIP;
+
+// colour the score badge
+const scoreEl = document.getElementById('hero-score-val');
+scoreEl.style.color = TOTAL_SCORE >= 0 ? '#4ade80' : '#f87171';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RENDER SECTION CARDS
+// ═══════════════════════════════════════════════════════════════════════════
+const SUBJ_CLASS = { Physics:'phy', Chemistry:'chem', Mathematics:'math', Maths:'math' };
+const grid = document.getElementById('section-grid');
+sectionSummaries.forEach(sec => {
+  const cls  = SUBJ_CLASS[sec.subject] || '';
+  const pct  = sec.max > 0 ? Math.round(sec.score / sec.max * 100) : 0;
+  const div  = document.createElement('div');
+  div.className = `sec-card ${cls}`;
+  div.innerHTML = `
+    <div class="sec-label">${sec.label}</div>
+    <div class="sec-score">
+      <span style="color:${sec.score >= 0 ? '#0f172a' : '#dc2626'}">${sec.score}</span>
+      <span class="denom">/ ${sec.max}</span>
+    </div>
+    <div class="sec-progress">
+      <div class="sec-progress-fill" style="width:${Math.max(0,pct)}%"></div>
+    </div>
+    <div class="sec-meta">
+      <span class="m-c">✓ ${sec.correct}</span>
+      <span class="m-w">✗ ${sec.wrong}</span>
+      <span class="m-u">− ${sec.skip}</span>
+    </div>`;
+  grid.appendChild(div);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SUBJECT TABS
+// ═══════════════════════════════════════════════════════════════════════════
+const subjects = [...new Set(tabs.map(t => t.subject).filter(Boolean))];
+const subTabBar = document.getElementById('subject-tabs');
+subjects.forEach(subj => {
+  const el = document.createElement('div');
+  el.className = 'sub-tab';
+  el.textContent = subj;
+  el.dataset.subj = subj;
+  el.onclick = () => filterSubject(subj);
+  subTabBar.appendChild(el);
+});
+
+let activeSubject = 'ALL';
+let activeStatus  = 'all';
+
+function filterSubject(subj) {
+  activeSubject = subj;
+  document.querySelectorAll('.sub-tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.subj === subj)
+  );
+  renderTable();
+}
+
+function filterStatus(status) {
+  activeStatus = status;
+  document.querySelectorAll('.pill').forEach(p =>
+    p.classList.toggle('active', p.onclick.toString().includes(`'${status}'`))
+  );
+  renderTable();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RENDER REVIEW TABLE
+// ═══════════════════════════════════════════════════════════════════════════
+const TYPE_SHORT = {
+  single_correct_mcq:   'Single',
+  multiple_correct_mcq: 'Multi',
+  integer_type:         'Integer',
+  numerical_type:       'Numerical',
+};
+
+function renderTable() {
+  const filtered = allRows.filter(r => {
+    if (activeSubject !== 'ALL' && r.subject !== activeSubject) return false;
+    if (activeStatus === 'correct' && r.status !== 'correct') return false;
+    if (activeStatus === 'wrong'   && r.status !== 'wrong')   return false;
+    if (activeStatus === 'skip'    && r.status !== 'unattempted') return false;
+    return true;
+  });
+
+  const tbody = document.getElementById('review-body');
+  tbody.innerHTML = '';
+
+  if (filtered.length === 0) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td colspan="7" style="text-align:center;padding:24px;color:#94a3b8">No questions match this filter.</td>`;
+    tbody.appendChild(tr);
+    return;
+  }
+
+  filtered.forEach(r => {
+    const tr = document.createElement('tr');
+    tr.className = 'clickable-row';
+    tr.addEventListener('click', () => { window.location.href = `/review?q=${r.gNum}`; });
+
+    // highlight row
+    if      (r.status === 'correct')    tr.style.background = '#f0fdf4';
+    else if (r.status === 'wrong')      tr.style.background = '#fef2f2';
+    else if (r.status === 'no-key')     tr.style.background = '#fffbeb';
+
+    const studentFmt  = fmtStudent(r.aType, r.student);
+    const correctFmt  = fmtCorrect(r.correct);
+
+    // Marks chip
+    let marksHtml;
+    if (r.score === null) {
+      marksHtml = `<span class="marks-chip na">N/A</span>`;
+    } else if (r.score > 0) {
+      marksHtml = `<span class="marks-chip pos">+${r.score}</span>`;
+    } else if (r.score < 0) {
+      marksHtml = `<span class="marks-chip neg">${r.score}</span>`;
+    } else {
+      marksHtml = `<span class="marks-chip zero">0</span>`;
+    }
+
+    // Status badge
+    const statusMap = {
+      correct:     `<span class="status-badge correct">✓ Correct</span>`,
+      wrong:       `<span class="status-badge wrong">✗ Wrong</span>`,
+      unattempted: `<span class="status-badge unattempted">− Skipped</span>`,
+      'no-key':    `<span class="status-badge no-key">⚠ No Key</span>`,
+    };
+
+    tr.innerHTML = `
+      <td><a class="q-num-badge" href="/review?q=${r.gNum}" onclick="event.stopPropagation()">${r.gNum}</a></td>
+      <td style="font-size:12px;font-weight:600;color:#475569">${r.tabLabel}</td>
+      <td style="font-size:11px;color:#94a3b8;font-weight:600">${TYPE_SHORT[r.aType] || r.aType}</td>
+      <td>${studentFmt
+        ? `<span class="ans-chip student">${studentFmt}</span>`
+        : `<span class="ans-chip missing">—</span>`
+      }</td>
+      <td>${correctFmt
+        ? `<span class="ans-chip correct">${correctFmt}</span>`
+        : `<span class="ans-chip missing">N/A</span>`
+      }</td>
+      <td>${marksHtml}</td>
+      <td>${statusMap[r.status] || ''}</td>`;
+
+    tbody.appendChild(tr);
+  });
+
+  const label = activeSubject === 'ALL' ? 'All Questions'
+    : `${activeSubject} — ${activeStatus === 'all' ? 'All' : activeStatus}`;
+  document.getElementById('review-title').textContent =
+    `${label} (${filtered.length} shown)`;
+}
+
+// ── Filter pill click handler fix ───────────────────────────────────────
+document.querySelectorAll('.pill').forEach(p => {
+  const clickStr = p.getAttribute('onclick');
+  p.addEventListener('click', () => {
+    document.querySelectorAll('.pill').forEach(pp => pp.classList.remove('active'));
+    p.classList.add('active');
+  });
+});
+
+// Initial render
+renderTable();
+</script>
+</body>
+</html>

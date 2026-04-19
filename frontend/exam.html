@@ -994,43 +994,73 @@ function checkHasAnswer(q) {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // GRADING ENGINE
+// ─────────────────────────────────────────────────────────────────────────────
+// Single correct MCQ:
+//   Correct option chosen  → +3
+//   Wrong option chosen    → −1
+//   Not attempted          → 0
+//
+// Multiple correct MCQ (n correct options in answer key):
+//   ANY wrong option chosen                        → −2  (overrides everything)
+//   0 options chosen                               → 0
+//   k correct chosen (no wrong), k < n            → +k  (+1 per correct option)
+//   All n correct chosen (no wrong)               → +4
+//
+// Integer type:   Exact match → +3,  else → 0
+// Numerical type: Within 1% tolerance → +4, else → 0
 // ═══════════════════════════════════════════════════════════════════════════════
 function gradeQuestion(aType, studentAns, correctAns) {
-  // correctAns: string[] for letters, string for numeric, or undefined/null
-  if (correctAns === undefined || correctAns === null) return null; // no key
+  // correctAns is null/undefined if no answer key was uploaded
+  if (correctAns === undefined || correctAns === null) return null;
 
+  // ── Single correct MCQ ──────────────────────────────────────────────────
   if (aType === "single_correct_mcq") {
-    if (!studentAns) return 0;
-    const correct = Array.isArray(correctAns) ? correctAns[0] : String(correctAns);
-    return studentAns === correct ? 3 : -1;
+    if (!studentAns) return 0;   // not attempted
+    const correct = (Array.isArray(correctAns) ? correctAns[0] : String(correctAns)).toUpperCase();
+    return String(studentAns).toUpperCase() === correct ? 3 : -1;
   }
 
+  // ── Multiple correct MCQ ────────────────────────────────────────────────
   if (aType === "multiple_correct_mcq") {
-    const selected = studentAns
-      ? Object.keys(studentAns).filter(k => studentAns[k])
-      : [];
-    if (selected.length === 0) return 0;
-    const correctSet = new Set(Array.isArray(correctAns) ? correctAns : [String(correctAns)]);
-    const wrongSelected = selected.filter(s => !correctSet.has(s));
-    if (wrongSelected.length > 0) return -2;
-    const rightSelected = selected.filter(s => correctSet.has(s));
-    if (rightSelected.length === correctSet.size) return 4; // full marks
-    return rightSelected.length;                            // partial: +1 per correct
+    // Student answer is stored as {A:true, B:false, C:true, D:false}
+    const ans = (typeof studentAns === 'object' && studentAns !== null) ? studentAns : {};
+    const selected = Object.keys(ans).filter(k => ans[k]).map(k => k.toUpperCase());
+
+    if (selected.length === 0) return 0;   // not attempted
+
+    // Build set of correct option letters (normalised to uppercase)
+    const correctArr = Array.isArray(correctAns)
+      ? correctAns.map(x => String(x).toUpperCase())
+      : [String(correctAns).toUpperCase()];
+    const correctSet = new Set(correctArr);
+    const n = correctSet.size;   // number of correct options in key
+
+    // Any wrong option → immediate −2
+    const wrongChosen = selected.filter(s => !correctSet.has(s));
+    if (wrongChosen.length > 0) return -2;
+
+    // Count correct options chosen
+    const rightChosen = selected.filter(s => correctSet.has(s));
+    const k = rightChosen.length;
+
+    if (k === n) return 4;        // all correct options chosen → full marks
+    return k;                    // partial: +1 per correctly chosen option (k ≥ 1, k < n)
   }
 
+  // ── Integer type ─────────────────────────────────────────────────────────
   if (aType === "integer_type") {
     if (studentAns === null || studentAns === "") return 0;
-    const correctInt = parseInt(String(correctAns), 10);
-    return parseInt(studentAns, 10) === correctInt ? 3 : 0;
+    return parseInt(studentAns, 10) === parseInt(String(correctAns), 10) ? 3 : 0;
   }
 
+  // ── Numerical type ───────────────────────────────────────────────────────
   if (aType === "numerical_type") {
     if (studentAns === null || studentAns === "") return 0;
-    const correctF = parseFloat(String(correctAns));
-    const studentF = parseFloat(studentAns);
-    if (isNaN(correctF) || isNaN(studentF)) return 0;
-    const tolerance = Math.max(Math.abs(correctF) * 0.01, 0.005);
-    return Math.abs(studentF - correctF) <= tolerance ? 4 : 0;
+    const cf = parseFloat(String(correctAns));
+    const sf = parseFloat(studentAns);
+    if (isNaN(cf) || isNaN(sf)) return 0;
+    const tolerance = Math.max(Math.abs(cf) * 0.01, 0.005);  // 1% or 0.005 absolute
+    return Math.abs(sf - cf) <= tolerance ? 4 : 0;
   }
 
   return 0;
@@ -1201,13 +1231,13 @@ function submitExam() {
 
   clearInterval(timerInterval);
   localStorage.setItem("jee_answers", JSON.stringify({ qAnswer, qState }));
-  showResults();  // ← show graded results instead of redirecting
+  window.location.href = "/results";
 }
 
 function autoSubmit() {
   clearInterval(timerInterval);
   localStorage.setItem("jee_answers", JSON.stringify({ qAnswer, qState }));
-  showResults();  // ← auto-submit goes straight to results
+  window.location.href = "/results";
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

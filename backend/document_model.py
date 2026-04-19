@@ -16,9 +16,15 @@ class Answer:
     raw:        str                        # "AD", "3", "2.50"
     parsed:     Union[list[str], str]      # ["A","D"] | "3"
     confidence: float = 1.0               # 1.0 = direct match, 0.7 = table, 0.5 = inferred
+    hint:       str   = ""                # solution/explanation text from PDF
 
     def to_json(self):
-        return {"raw": self.raw, "parsed": self.parsed, "confidence": self.confidence}
+        return {
+            "raw":        self.raw,
+            "parsed":     self.parsed,
+            "confidence": self.confidence,
+            "hint":       self.hint,
+        }
 
 
 # ── Question ────────────────────────────────────────────────────────────────────

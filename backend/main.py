@@ -34,6 +34,20 @@ async def exam():
     resp.headers["Pragma"]        = "no-cache"
     return resp
 
+@app.get("/results", include_in_schema=False)
+async def results():
+    resp = FileResponse(str(FRONTEND_DIR / "results.html"))
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    resp.headers["Pragma"]        = "no-cache"
+    return resp
+
+@app.get("/review", include_in_schema=False)
+async def review():
+    resp = FileResponse(str(FRONTEND_DIR / "review.html"))
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    resp.headers["Pragma"]        = "no-cache"
+    return resp
+
 # ── CORS ───────────────────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
@@ -163,9 +177,10 @@ async def upload_solutions(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Solutions parse error: {e}")
 
-    # JSON-serialisable flat answer key (string keys)
+    # JSON-serialisable flat answer key (string keys).
+    # Each entry is {parsed, hint} so the frontend can display solution text.
     answers_str = {
-        str(k): v.parsed
+        str(k): {"parsed": v.parsed, "hint": v.hint}
         for k, v in global_answers.items()
     }
 

@@ -118,6 +118,9 @@ _ANS_RE = re.compile(
 # Secondary: "Part – I", "Part – II" labels (not structural — skip these)
 _PART_RE = re.compile(r"^\s*part\s*[-–—]\s*[IVX]+\s*$", re.IGNORECASE)
 
+# Strip leading "Sol." / "Solution" from hint text
+_SOL_PREFIX = re.compile(r'^(Sol\.?\s*|Solution\.?\s*)', re.IGNORECASE)
+
 
 def parse_solutions(pdf_bytes: bytes) -> tuple[dict, list, list]:
     """
@@ -136,6 +139,11 @@ def parse_solutions(pdf_bytes: bytes) -> tuple[dict, list, list]:
     current_subject      = ""
     current_section_name = "SECTION-A"
     current_sec_answers: dict[int, Answer] = {}
+
+    # _hint_q tracks which question's hint we are currently appending to.
+    # It is set when an answer line is matched, and cleared when a
+    # subject/section header is encountered.
+    _hint_q: int | None = None
 
     def _flush_section():
         nonlocal current_sec_answers
@@ -162,6 +170,7 @@ def parse_solutions(pdf_bytes: bytes) -> tuple[dict, list, list]:
             # ── Subject header (Physics / Chemistry / Mathematics) ──────────
             if _is_subject_header(stripped):
                 _flush_section()
+                _hint_q = None
                 m = SUBJECT_KEYWORDS.search(stripped)
                 current_subject      = m.group(0).capitalize() if m else stripped.strip()
                 current_section_name = "SECTION-A"
@@ -176,6 +185,7 @@ def parse_solutions(pdf_bytes: bytes) -> tuple[dict, list, list]:
             # ── Section header (SECTION – A / B / C) ──────────────────────
             if _is_section_header(stripped):
                 _flush_section()
+                _hint_q = None
                 current_section_name = stripped
                 debug_lines.append({
                     "page": page_num + 1, "line": stripped,
@@ -192,8 +202,14 @@ def parse_solutions(pdf_bytes: bytes) -> tuple[dict, list, list]:
                 parsed = _parse_answer_value(m.group(2))
                 ans    = Answer(raw=m.group(2).strip(), parsed=parsed, confidence=1.0)
 
-                global_answers[q_num]       = ans
-                current_sec_answers[q_num]  = ans
+                global_answers[q_num]      = ans
+                current_sec_answers[q_num] = ans
+                _hint_q = q_num   # subsequent lines are this question's hint
+
+                # Capture hint text on the SAME line after the answer / "Sol."
+                rest = _SOL_PREFIX.sub('', stripped[m.end():]).strip()
+                if rest:
+                    ans.hint = rest
 
                 debug_lines.append({
                     "page":     page_num + 1,
@@ -205,7 +221,18 @@ def parse_solutions(pdf_bytes: bytes) -> tuple[dict, list, list]:
                 })
                 continue
 
-            # ── Candidate line (not matched) — include in debug if short ──
+            # ── Hint / solution text (continuation lines) ──────────────────
+            # Anything that is NOT a header and NOT an answer line is treated
+            # as solution/explanation text for the current question.
+            if _hint_q is not None and _hint_q in global_answers:
+                hint_line = _SOL_PREFIX.sub('', stripped).strip()
+                if hint_line:
+                    existing = global_answers[_hint_q].hint
+                    global_answers[_hint_q].hint = (
+                        (existing + " " + hint_line).strip() if existing else hint_line
+                    )
+
+            # ── Debug record for audit panel ──────────────────────────────
             if len(stripped) <= 80:
                 debug_lines.append({
                     "page":     page_num + 1,
@@ -222,6 +249,7 @@ def parse_solutions(pdf_bytes: bytes) -> tuple[dict, list, list]:
     print(f"[SOLUTION PARSER] {len(global_answers)} answers across "
           f"{len(section_answers)} sections")
     for k, v in sorted(global_answers.items()):
-        print(f"  Q{k:>3}: {v.parsed}")
+        hint_preview = f' | hint: {v.hint[:50]}…' if v.hint else ''
+        print(f"  Q{k:>3}: {v.parsed}{hint_preview}")
 
     return global_answers, section_answers, debug_lines

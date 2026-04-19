@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Question Review</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue:   #1d4ed8; --green:  #16a34a; --red:    #dc2626;
+      --orange: #d97706; --grey:   #64748b; --bg:     #f1f5f9;
+      --card:   #ffffff; --border: #e2e8f0; --text:   #0f172a; --muted:  #64748b;
+    }
+
+    body { font-family: 'Inter', 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* ── TOP BAR ─────── */
+    #top-bar {
+      background: linear-gradient(135deg, #1e1b4b 0%, #312e81 60%, #1d4ed8 100%);
+      color: white; padding: 0 28px; height: 58px;
+      display: flex; align-items: center; justify-content: space-between;
+      box-shadow: 0 2px 12px rgba(29,78,216,.3); position: sticky; top: 0; z-index: 100;
+    }
+    #top-bar h1 { font-size: 17px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+    .top-actions { display: flex; gap: 8px; }
+    .top-btn {
+      padding: 7px 16px; border-radius: 8px; font-size: 13px; font-weight: 600;
+      cursor: pointer; border: 1px solid rgba(255,255,255,.3);
+      background: rgba(255,255,255,.15); color: white; transition: all .15s;
+    }
+    .top-btn:hover { background: rgba(255,255,255,.25); }
+
+    /* ── NAV BAR ─────── */
+    #nav-bar {
+      background: white; border-bottom: 2px solid var(--border);
+      padding: 10px 28px; display: flex; align-items: center; justify-content: space-between;
+    }
+    .nav-info { display: flex; align-items: center; gap: 14px; }
+    .q-badge-large {
+      width: 44px; height: 44px; border-radius: 10px;
+      background: #e0e7ff; color: #3730a3; font-weight: 900; font-size: 18px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .nav-meta { display: flex; flex-direction: column; }
+    .nav-meta .sec-lbl  { font-size: 13px; font-weight: 700; color: var(--text); }
+    .nav-meta .type-lbl { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; }
+    .nav-arrows { display: flex; gap: 8px; }
+    .nav-arrow {
+      padding: 7px 18px; border-radius: 8px; font-size: 13px; font-weight: 700;
+      cursor: pointer; border: 2px solid var(--border); background: white; color: var(--text);
+      transition: all .15s; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+    }
+    .nav-arrow:hover:not(.disabled) { background: #e0e7ff; border-color: #a5b4fc; color: #3730a3; }
+    .nav-arrow.disabled { opacity: .35; pointer-events: none; }
+
+    /* ── MAIN ─────── */
+    #main { max-width: 960px; margin: 0 auto; padding: 28px 20px 60px; display: flex; flex-direction: column; gap: 20px; }
+
+    /* ── CARDS ─────── */
+    .r-card { background: var(--card); border-radius: 16px; box-shadow: 0 1px 6px rgba(0,0,0,.08); overflow: hidden; }
+    .r-card-header {
+      padding: 14px 20px; background: #f8fafc; border-bottom: 1px solid var(--border);
+      font-size: 13px; font-weight: 700; color: var(--muted); display: flex; align-items: center; gap: 8px;
+    }
+
+    /* ── QUESTION IMAGE ─────── */
+    #q-images { padding: 20px; }
+    #q-images img { width: 100%; max-width: 820px; display: block; margin: 0 auto 12px; border-radius: 6px; }
+    #q-images img:last-child { margin-bottom: 0; }
+    .no-image {
+      padding: 32px; text-align: center; color: var(--muted);
+      background: #f8fafc; border-radius: 8px; font-size: 14px;
+      border: 2px dashed var(--border);
+    }
+
+    /* ── OPTIONS ─────── */
+    #options-body { padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; }
+    .opt-row {
+      display: flex; align-items: center; gap: 14px;
+      padding: 12px 16px; border-radius: 10px; border: 2px solid var(--border);
+    }
+    .opt-row.chosen-correct  { background: #f0fdf4; border-color: #86efac; }
+    .opt-row.chosen-wrong    { background: #fef2f2; border-color: #fca5a5; }
+    .opt-row.correct-missed  { background: #f0fdf4; border-color: #86efac; border-style: dashed; }
+    .opt-row.neutral         { background: #f8fafc; }
+
+    .opt-circle {
+      width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 15px;
+      border: 2px solid var(--border); background: white; color: var(--muted);
+    }
+    .opt-row.chosen-correct  .opt-circle { background: #16a34a; border-color: #16a34a; color: white; }
+    .opt-row.chosen-wrong    .opt-circle { background: #dc2626; border-color: #dc2626; color: white; }
+    .opt-row.correct-missed  .opt-circle { background: #dcfce7; border-color: #16a34a; color: #16a34a; }
+
+    .opt-label { font-size: 14px; font-weight: 600; color: var(--text); flex: 1; }
+    .opt-tag {
+      font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; white-space: nowrap;
+    }
+    .tag-chosen  { background: #eff6ff; color: #1d4ed8; }
+    .tag-correct { background: #dcfce7; color: #16a34a; }
+    .tag-wrong   { background: #fee2e2; color: #dc2626; }
+    .tag-missed  { background: #f0fdf4; color: #16a34a; border: 1px dashed #86efac; }
+
+    /* Numeric answer */
+    .num-display { padding: 16px 20px; font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 12px; }
+    .num-display + .num-display { border-top: 1px solid var(--border); }
+    .num-val {
+      display: inline-block; padding: 6px 18px; border-radius: 8px;
+      font-size: 18px; font-weight: 800; background: #eff6ff; color: #1d4ed8;
+    }
+
+    /* ── SCORE SUMMARY ─────── */
+    #score-body {
+      padding: 20px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+    }
+    .score-cell { border-radius: 12px; padding: 16px 18px; text-align: center; }
+    .score-cell .sc-lbl {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .08em; color: var(--muted); margin-bottom: 8px;
+    }
+    .score-cell .sc-val { font-size: 22px; font-weight: 900; }
+    .cell-correct { background: #f0fdf4; }
+    .cell-correct .sc-val { color: #16a34a; }
+    .cell-student { background: #eff6ff; }
+    .cell-student .sc-val { color: #1d4ed8; }
+    .cell-marks   { background: #f8fafc; border: 2px solid var(--border); }
+    .sc-val.pos   { color: #16a34a; }
+    .sc-val.neg   { color: #dc2626; }
+    .sc-val.zero  { color: var(--muted); }
+    .sc-val.na    { color: var(--orange); }
+
+    /* ── HINT / SOLUTION CARD ────── */
+    #hint-card { border-left: 4px solid #7c3aed; }
+    #hint-body  { padding: 24px; }
+    .hint-label {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .08em; color: #7c3aed; margin-bottom: 14px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .hint-text {
+      font-size: 14.5px; line-height: 1.85; color: #1e293b;
+      white-space: pre-wrap; word-break: break-word;
+    }
+    .hint-empty {
+      font-size: 13px; color: var(--muted); font-style: italic;
+    }
+
+    /* ── NOT FOUND ─────── */
+    #not-found { display: none; text-align: center; padding: 60px 20px; color: var(--muted); font-size: 16px; }
+  </style>
+</head>
+<body>
+
+<div id="top-bar">
+  <h1>🔍 Question Review</h1>
+  <div class="top-actions">
+    <button class="top-btn" onclick="window.location.href='/results'">← Back to Results</button>
+    <button class="top-btn" onclick="window.location.href='/'">🏠 Home</button>
+  </div>
+</div>
+
+<div id="nav-bar">
+  <div class="nav-info">
+    <div class="q-badge-large" id="nav-qnum">—</div>
+    <div class="nav-meta">
+      <div class="sec-lbl"  id="nav-section">—</div>
+      <div class="type-lbl" id="nav-type">—</div>
+    </div>
+  </div>
+  <div class="nav-arrows">
+    <a class="nav-arrow disabled" id="btn-prev" href="#">← Prev</a>
+    <a class="nav-arrow disabled" id="btn-next" href="#">Next →</a>
+  </div>
+</div>
+
+<div id="not-found">
+  <p style="font-size:40px;margin-bottom:12px">🔍</p>
+  <p>Question not found. <a href="/results" style="color:#1d4ed8">Back to Results</a></p>
+</div>
+
+<div id="main">
+  <div id="q-card" class="r-card">
+    <div class="r-card-header">📄 Question</div>
+    <div id="q-images"></div>
+  </div>
+  <div id="options-card" class="r-card">
+    <div class="r-card-header">🔘 Answer Options</div>
+    <div id="options-body"></div>
+  </div>
+  <div id="score-card" class="r-card">
+    <div class="r-card-header">📊 Score Summary</div>
+    <div id="score-body">
+      <div class="score-cell cell-correct">
+        <div class="sc-lbl">Correct Answer</div>
+        <div class="sc-val" id="sc-correct">—</div>
+      </div>
+      <div class="score-cell cell-student">
+        <div class="sc-lbl">Your Answer</div>
+        <div class="sc-val" id="sc-student">—</div>
+      </div>
+      <div class="score-cell cell-marks">
+        <div class="sc-lbl">Marks Received</div>
+        <div class="sc-val" id="sc-marks">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SOLUTION / HINT CARD -->
+  <div id="hint-card" class="r-card">
+    <div class="r-card-header">💡 Solution Explanation</div>
+    <div id="hint-body">
+      <div class="hint-label">📖 From Solutions PDF</div>
+      <div id="hint-text"></div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<script>
+// ═══════════════════════════════════════════════════════
+// CONSTANTS — defined first so renderQuestion() can use them
+// ═══════════════════════════════════════════════════════
+const OPTIONS = ['A', 'B', 'C', 'D'];
+
+const TYPE_LABEL = {
+  single_correct_mcq:   'Single Correct',
+  multiple_correct_mcq: 'Multiple Correct',
+  integer_type:         'Integer Type',
+  numerical_type:       'Numerical Type',
+};
+
+const ABBREV = { Physics:'Phy', Chemistry:'Chem', Mathematics:'Math', Maths:'Math' };
+
+// ═══════════════════════════════════════════════════════
+// DATA FROM LOCALSTORAGE
+// ═══════════════════════════════════════════════════════
+const rawNodes  = JSON.parse(localStorage.getItem('jee_nodes')    || '[]');
+const solutions = JSON.parse(localStorage.getItem('jee_solutions') || 'null');
+const savedAns  = JSON.parse(localStorage.getItem('jee_answers')   || 'null');
+
+const qAnswerSaved = savedAns ? savedAns.qAnswer : {};
+
+// ── Unwrap Answer object {raw, parsed, confidence} → array or string ─────
+function unwrapAnswer(ans) {
+  if (ans === null || ans === undefined) return null;
+  // If it's already an array or primitive, return as-is
+  if (Array.isArray(ans)) return ans;
+  if (typeof ans !== 'object') return ans;
+  // It's an Answer object {raw, parsed, confidence}
+  if ('parsed' in ans) return ans.parsed;
+  return ans.raw || null;
+}
+
+// ═══════════════════════════════════════════════════════
+// BUILD TAB / QUESTION LIST
+// ═══════════════════════════════════════════════════════
+function buildTabs(nodes) {
+  const tabs = [];
+  let currentSubject = '';
+  let sectionCounts  = {};
+  let currentTab     = null;
+
+  nodes.forEach(node => {
+    if (node.type === 'subject') {
+      currentSubject = node.subject.name;
+      if (!sectionCounts[currentSubject]) sectionCounts[currentSubject] = 0;
+    } else if (node.type === 'section') {
+      const abbrev = ABBREV[currentSubject] || currentSubject.slice(0, 4);
+      sectionCounts[currentSubject] = (sectionCounts[currentSubject] || 0) + 1;
+      const n = sectionCounts[currentSubject];
+      currentTab = {
+        tabLabel: currentSubject ? `${abbrev} Sec ${n}` : (node.section.name || `Sec ${n}`),
+        subject:  currentSubject,
+        sectionMeta: node.section,
+        questions: [],
+      };
+      tabs.push(currentTab);
+    } else if (node.type === 'question') {
+      if (!currentTab) {
+        currentTab = {
+          tabLabel: 'Questions', subject: '',
+          sectionMeta: node.section || { name:'General', answer_type:'single_correct_mcq' },
+          questions: [],
+        };
+        tabs.push(currentTab);
+      }
+      currentTab.questions.push(node);
+    }
+  });
+  return tabs;
+}
+
+const tabs = buildTabs(rawNodes).filter(t => t.questions.length > 0);
+
+// Flat array: [{gNum, q, tab}]
+const allQuestions = [];
+tabs.forEach((tab, tabIdx) => {
+  let offset = 0;
+  for (let i = 0; i < tabIdx; i++) offset += tabs[i].questions.length;
+  tab.questions.forEach((q, qi) => {
+    allQuestions.push({ gNum: offset + qi + 1, q, tab });
+  });
+});
+
+// ═══════════════════════════════════════════════════════
+// GRADING
+// ═══════════════════════════════════════════════════════
+function getAnswerType(q) {
+  return (q.section && q.section.answer_type) || 'single_correct_mcq';
+}
+
+function gradeQuestion(aType, studentAns, correctAns) {
+  // correctAns is already unwrapped (array of letters or numeric string)
+  if (correctAns === null || correctAns === undefined) return null;
+
+  if (aType === 'single_correct_mcq') {
+    if (!studentAns) return 0;
+    const c = (Array.isArray(correctAns) ? correctAns[0] : String(correctAns)).toUpperCase();
+    return String(studentAns).toUpperCase() === c ? 3 : -1;
+  }
+
+  if (aType === 'multiple_correct_mcq') {
+    const ans = (typeof studentAns === 'object' && studentAns !== null) ? studentAns : {};
+    const selected = Object.keys(ans).filter(k => ans[k]).map(k => k.toUpperCase());
+    if (selected.length === 0) return 0;
+    const correctArr = Array.isArray(correctAns)
+      ? correctAns.map(x => String(x).toUpperCase())
+      : [String(correctAns).toUpperCase()];
+    const cSet = new Set(correctArr);
+    const n = cSet.size;
+    const wrong = selected.filter(s => !cSet.has(s));
+    if (wrong.length > 0) return -2;
+    const right = selected.filter(s => cSet.has(s));
+    return right.length === n ? 4 : right.length;
+  }
+
+  if (aType === 'integer_type') {
+    if (studentAns === null || studentAns === '') return 0;
+    return parseInt(studentAns, 10) === parseInt(String(correctAns), 10) ? 3 : 0;
+  }
+
+  if (aType === 'numerical_type') {
+    if (studentAns === null || studentAns === '') return 0;
+    const cf = parseFloat(String(correctAns));
+    const sf = parseFloat(studentAns);
+    if (isNaN(cf) || isNaN(sf)) return 0;
+    const tol = Math.max(Math.abs(cf) * 0.01, 0.005);
+    return Math.abs(sf - cf) <= tol ? 4 : 0;
+  }
+  return 0;
+}
+
+// ═══════════════════════════════════════════════════════
+// FORMAT HELPERS
+// ═══════════════════════════════════════════════════════
+function fmtCorrect(ans) {
+  if (ans === null || ans === undefined) return 'N/A';
+  if (Array.isArray(ans)) return ans.join(' + ');
+  return String(ans);
+}
+
+function fmtStudent(aType, ans) {
+  if (aType === 'multiple_correct_mcq') {
+    if (!ans || typeof ans !== 'object') return '—';
+    const sel = Object.keys(ans).filter(k => ans[k]).sort();
+    return sel.length ? sel.join(' + ') : '—';
+  }
+  if (ans === null || ans === undefined || ans === '') return '—';
+  return String(ans);
+}
+
+// ═══════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════
+function renderQuestion(entry) {
+  const { gNum, q, tab } = entry;
+  const aType   = getAnswerType(q);
+  // Unwrap from Answer object if needed
+  const rawCorrect = solutions ? solutions[String(gNum)] : null;
+  const correct    = unwrapAnswer(rawCorrect);
+  const student    = qAnswerSaved[q.id] !== undefined ? qAnswerSaved[q.id] : null;
+  const score      = gradeQuestion(aType, student, correct);
+
+  // ── Nav bar ──────────────────────────────────────────
+  document.title = `Q${gNum} — Review`;
+  document.getElementById('nav-qnum').textContent   = gNum;
+  document.getElementById('nav-section').textContent = tab.tabLabel;
+  document.getElementById('nav-type').textContent    = TYPE_LABEL[aType] || aType;
+
+  // ── Question images ──────────────────────────────────
+  const imgArea = document.getElementById('q-images');
+  imgArea.innerHTML = '';
+  if (q.images && q.images.length > 0) {
+    q.images.forEach(src => {
+      const img = document.createElement('img');
+      img.src = src;
+      img.alt = `Question ${gNum}`;
+      imgArea.appendChild(img);
+    });
+  } else {
+    imgArea.innerHTML =
+      '<div class="no-image">⚠️ Question image not available — please re-upload the question paper PDF.</div>';
+  }
+
+  // ── Options ──────────────────────────────────────────
+  const optBody = document.getElementById('options-body');
+  optBody.innerHTML = '';
+
+  if (aType === 'single_correct_mcq' || aType === 'multiple_correct_mcq') {
+    // Build correct set
+    const correctArr = correct
+      ? (Array.isArray(correct) ? correct : [String(correct)]).map(x => x.toUpperCase())
+      : [];
+    const correctSet = new Set(correctArr);
+
+    // Build chosen set
+    const chosenSet = new Set();
+    if (aType === 'single_correct_mcq' && student) {
+      chosenSet.add(String(student).toUpperCase());
+    } else if (aType === 'multiple_correct_mcq' && student && typeof student === 'object') {
+      Object.keys(student).filter(k => student[k]).forEach(k => chosenSet.add(k.toUpperCase()));
+    }
+
+    OPTIONS.forEach(opt => {
+      const isChosen  = chosenSet.has(opt);
+      const isCorrect = correctSet.size > 0 && correctSet.has(opt);
+
+      let rowClass = 'opt-row neutral';
+      const tags   = [];
+
+      if (isChosen && isCorrect) {
+        rowClass = 'opt-row chosen-correct';
+        tags.push('<span class="opt-tag tag-correct">✓ Correct</span>');
+        tags.push('<span class="opt-tag tag-chosen">Your choice</span>');
+      } else if (isChosen && !isCorrect) {
+        rowClass = 'opt-row chosen-wrong';
+        tags.push('<span class="opt-tag tag-wrong">✗ Wrong</span>');
+        tags.push('<span class="opt-tag tag-chosen">Your choice</span>');
+      } else if (!isChosen && isCorrect) {
+        rowClass = 'opt-row correct-missed';
+        tags.push('<span class="opt-tag tag-missed">✓ Correct (missed)</span>');
+      }
+
+      const row = document.createElement('div');
+      row.className = rowClass;
+      row.innerHTML = `
+        <div class="opt-circle">${opt}</div>
+        <div class="opt-label">Option ${opt}</div>
+        ${tags.join('')}`;
+      optBody.appendChild(row);
+    });
+
+  } else {
+    // Numeric
+    const studentStr = fmtStudent(aType, student);
+    const correctStr = fmtCorrect(correct);
+    optBody.innerHTML = `
+      <div class="num-display">
+        <span style="color:var(--muted);font-weight:600;min-width:140px">Your answer:</span>
+        <span class="num-val" style="background:${student ? '#eff6ff' : '#f1f5f9'};color:${student ? '#1d4ed8' : '#94a3b8'}">${studentStr}</span>
+      </div>
+      <div class="num-display">
+        <span style="color:var(--muted);font-weight:600;min-width:140px">Correct answer:</span>
+        <span class="num-val" style="background:${correct ? '#dcfce7' : '#f1f5f9'};color:${correct ? '#15803d' : '#94a3b8'}">${correctStr}</span>
+      </div>`;
+  }
+
+  // ── Score summary ────────────────────────────────────
+  document.getElementById('sc-correct').textContent = fmtCorrect(correct);
+  document.getElementById('sc-student').textContent = fmtStudent(aType, student);
+
+  const marksEl = document.getElementById('sc-marks');
+  if (score === null) {
+    marksEl.textContent = 'N/A'; marksEl.className = 'sc-val na';
+  } else if (score > 0) {
+    marksEl.textContent = `+${score}`; marksEl.className = 'sc-val pos';
+  } else if (score < 0) {
+    marksEl.textContent = String(score); marksEl.className = 'sc-val neg';
+  } else {
+    marksEl.textContent = '0'; marksEl.className = 'sc-val zero';
+  }
+
+  // ── Hint / solution text ─────────────────────────────
+  const hintEl    = document.getElementById('hint-text');
+  const rawAnsObj = solutions ? solutions[String(gNum)] : null;
+  // hint lives on the full Answer object (solutions stores {parsed, hint})
+  const hintText  = (rawAnsObj && typeof rawAnsObj === 'object' && rawAnsObj.hint)
+                    ? rawAnsObj.hint.trim()
+                    : '';
+  if (hintText) {
+    hintEl.className   = 'hint-text';
+    hintEl.textContent = hintText;
+  } else {
+    hintEl.className   = 'hint-empty';
+    hintEl.textContent = 'No solution text was found for this question in the solutions PDF.';
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// BOOT — everything is defined above, safe to call now
+// ═══════════════════════════════════════════════════════
+const params  = new URLSearchParams(window.location.search);
+const gNumReq = parseInt(params.get('q') || '1', 10);
+const entry   = allQuestions.find(e => e.gNum === gNumReq);
+
+if (!entry) {
+  document.getElementById('not-found').style.display = 'block';
+  document.getElementById('main').style.display      = 'none';
+} else {
+  renderQuestion(entry);
+}
+
+// Prev / Next arrows
+const currentIdx = allQuestions.findIndex(e => e.gNum === gNumReq);
+const btnPrev    = document.getElementById('btn-prev');
+const btnNext    = document.getElementById('btn-next');
+
+if (currentIdx > 0) {
+  btnPrev.href = `/review?q=${allQuestions[currentIdx - 1].gNum}`;
+  btnPrev.classList.remove('disabled');
+}
+if (currentIdx >= 0 && currentIdx < allQuestions.length - 1) {
+  btnNext.href = `/review?q=${allQuestions[currentIdx + 1].gNum}`;
+  btnNext.classList.remove('disabled');
+}
+</script>
+</body>
+</html>
