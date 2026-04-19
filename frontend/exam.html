@@ -535,6 +535,36 @@ function buildTabs(nodes) {
 
 const tabs = buildTabs(raw).filter(t => t.questions.length > 0);
 
+// ── Stale data guard ──────────────────────────────────────────────────────
+// If nodes exist but have no images (stale from before a server restart or
+// pipeline change), show a warning banner immediately.
+(function checkStaleness() {
+  const allQs = raw.filter(n => n.type === "question");
+  if (allQs.length > 0) {
+    const hasImages = allQs.some(q => q.images && q.images.length > 0);
+    if (!hasImages) {
+      const banner = document.createElement("div");
+      banner.style.cssText = [
+        "position:fixed","top:0","left:0","right:0","z-index:9999",
+        "background:#b71c1c","color:white","padding:12px 20px",
+        "font-size:14px","font-weight:600","text-align:center",
+        "box-shadow:0 2px 8px rgba(0,0,0,0.3)"
+      ].join(";");
+      banner.innerHTML = `
+        ⚠️ Question images missing (stale data). 
+        <a href="/" style="color:#ffcc80;text-decoration:underline">Go back to the Upload page</a>
+        and upload the question paper PDF again.
+        <button onclick="localStorage.removeItem('jee_nodes');window.location.href='/'"
+          style="margin-left:16px;background:white;color:#b71c1c;border:none;
+                 padding:4px 12px;border-radius:4px;cursor:pointer;font-weight:700">
+          Clear &amp; Re-upload
+        </button>
+      `;
+      document.body.prepend(banner);
+    }
+  }
+})();
+
 // ── Per-question state ──
 // state: 'not_visited' | 'not_answered' | 'answered' | 'marked' | 'answered_marked'
 const qState  = {};  // qId → state string
@@ -548,6 +578,13 @@ tabs.forEach(tab => tab.questions.forEach(q => {
 // ── Current position ──
 let activeTabIdx = 0;
 let activeQIdx   = 0;   // within active tab
+
+// ── Global question number (1-based across all tabs) ──
+function globalQNum(tabIdx, qIdx) {
+  let n = 0;
+  for (let i = 0; i < tabIdx; i++) n += tabs[i].questions.length;
+  return n + qIdx + 1;
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TIMER
@@ -870,8 +907,16 @@ function renderQuestion() {
     });
   } else {
     const ph = document.createElement("div");
-    ph.style.cssText = "padding:20px;background:#f5f5f5;border-radius:6px;color:#888;margin-bottom:12px;text-align:center;";
-    ph.textContent = "(Question image not available)";
+    ph.style.cssText = [
+      "padding:20px","background:#fff3e0","border:2px solid #ffcc80",
+      "border-radius:8px","color:#e65100","margin-bottom:12px",
+      "text-align:center","font-weight:600"
+    ].join(";");
+    ph.innerHTML = `
+      ⚠️ Question image missing for <strong>${q.id}</strong>.<br>
+      <span style="font-size:12px;font-weight:400">This usually means the question paper was not re-uploaded after a server restart.
+        <a href="/" style="color:#1565c0">Re-upload here</a>.
+      </span>`;
     scroll.appendChild(ph);
   }
 

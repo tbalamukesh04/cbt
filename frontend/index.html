@@ -75,6 +75,62 @@
     }
     .btn-exam:hover { box-shadow: 0 6px 18px rgba(26,35,126,0.4); transform: translateY(-1px); }
 
+    /* ── Answer-key Audit Panel ──────────────────────────────── */
+    #auditPanel {
+      display: none;
+      background: white; border-radius: 12px;
+      border: 1px solid #e2e8f0;
+      padding: 18px 22px; margin-top: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    #auditPanel.visible { display: block; }
+    #auditPanel h3 { font-size: 15px; margin-bottom: 12px; color: #1e293b; }
+    .audit-count-bar {
+      display: flex; align-items: center; gap: 12px; margin-bottom: 14px;
+    }
+    .audit-count { font-size: 28px; font-weight: 800; color: #1a237e; }
+    .audit-count-label { font-size: 12px; color: #64748b; line-height: 1.4; }
+    .audit-detected-banner {
+      background: #f0fdf4; border: 1px solid #86efac; border-radius: 6px;
+      padding: 6px 12px; font-size: 13px; color: #15803d; margin-bottom: 14px;
+    }
+    /* Detected answers grid */
+    .ans-grid {
+      display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px;
+    }
+    .ans-chip {
+      display: flex; align-items: center; gap: 6px;
+      padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;
+      border: 1px solid #e2e8f0;
+    }
+    .ans-chip .q-num { color: #64748b; }
+    .ans-chip .q-ans { color: #1a237e; }
+    /* Debug lines table */
+    details.debug-raw { margin-top: 8px; }
+    details.debug-raw summary {
+      cursor: pointer; font-size: 12px; font-weight: 600;
+      color: #475569; padding: 6px 0; user-select: none;
+    }
+    .debug-table {
+      width: 100%; border-collapse: collapse; font-size: 11px;
+      margin-top: 8px; font-family: 'Courier New', monospace;
+    }
+    .debug-table th {
+      background: #f1f5f9; padding: 5px 8px; text-align: left;
+      font-weight: 700; color: #334155;
+    }
+    .debug-table td { padding: 4px 8px; border-bottom: 1px solid #f1f5f9; }
+    .debug-table .row-match { background: #f0fdf4; }
+    .debug-table .row-miss  { background: #fff7f7; }
+    .debug-table .tag-match {
+      background: #dcfce7; color: #15803d; padding: 1px 6px;
+      border-radius: 10px; font-weight: 700;
+    }
+    .debug-table .tag-miss {
+      background: #fee2e2; color: #b91c1c; padding: 1px 6px;
+      border-radius: 10px; font-weight: 700;
+    }
+
     /* ── Workspace ──────────────────────────────────────────────── */
     #workspace { display: flex; flex-direction: column; gap: 16px; }
 
@@ -221,6 +277,40 @@
       <button class="btn btn-primary" id="solutionBtn">Upload Solutions</button>
     </div>
     <div id="solutionStatus"></div>
+    <!-- Audit panel injected here after upload -->
+    <div id="auditPanel">
+      <h3>🔍 Answer Key Audit</h3>
+      <div class="audit-count-bar">
+        <div class="audit-count" id="auditCount">—</div>
+        <div class="audit-count-label">answers detected<br><span id="auditMissed" style="color:#b91c1c"></span></div>
+      </div>
+      <div class="audit-detected-banner" id="auditDetectedBanner"></div>
+
+      <!-- Validation report (section-level) -->
+      <div id="validationWrap" style="display:none;margin-bottom:16px">
+        <div style="font-size:12px;font-weight:700;color:#334155;margin-bottom:6px">Section Alignment Report</div>
+        <table class="debug-table" id="valTable" style="font-family:inherit">
+          <thead><tr>
+            <th>Section</th><th>Type</th><th>Expected</th><th>Parsed</th><th>Answers</th><th>Status</th><th>Issues</th>
+          </tr></thead>
+          <tbody id="valTableBody"></tbody>
+        </table>
+      </div>
+
+      <!-- Detected answers grid -->
+      <div class="ans-grid" id="ansGrid"></div>
+
+      <!-- Raw lines debug (collapsible) -->
+      <details class="debug-raw">
+        <summary>📄 Raw candidate lines (▸ click to expand)</summary>
+        <table class="debug-table">
+          <thead><tr>
+            <th>Pg</th><th>Line text</th><th>Q#</th><th>Detected</th><th>Status</th>
+          </tr></thead>
+          <tbody id="debugTableBody"></tbody>
+        </table>
+      </details>
+    </div>
   </div>
 
   <div id="workspace"></div>
@@ -525,7 +615,9 @@
     render();
   }
 
-  // ── Upload ─────────────────────────────────────────────────────
+  let paperSessionId = localStorage.getItem("jee_session_id") || "";
+
+    // ── Upload ─────────────────────────────────────────────────────
   document.getElementById("uploadBtn").addEventListener("click", async () => {
     const file = document.getElementById("pdfInput").files[0];
     if (!file) { setStatus("Please select a PDF file first.", "error"); return; }
@@ -543,13 +635,14 @@
       if (!res.ok) throw new Error(data.detail || "Unknown server error.");
 
       nodes = data.nodes;
+      paperSessionId = data.session_id || "";
+      localStorage.setItem("jee_nodes",      JSON.stringify(nodes));
+      localStorage.setItem("jee_session_id", paperSessionId);
       render();
       setStatus(
         `Parsed ${data.total} question${data.total !== 1 ? "s" : ""}. Review below or click Start Exam.`,
         "success"
       );
-      // Save to localStorage and show Start Exam button
-      localStorage.setItem("jee_nodes", JSON.stringify(nodes));
       document.getElementById("startExamBar").classList.add("visible");
     } catch (err) {
       setStatus(`Error: ${err.message}`, "error");
@@ -564,7 +657,7 @@
     window.location.href = "/exam";
   });
 
-  // ── Solutions upload ────────────────────────────────────────────
+  // ── Solutions upload (with audit panel) ────────────────────────
   function setSolStatus(msg, type = "info") {
     const el = document.getElementById("solutionStatus");
     el.textContent = msg;
@@ -582,12 +675,92 @@
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res  = await fetch(`${API}/upload_solutions`, { method: "POST", body: fd });
+      const url  = `${API}/upload_solutions?session_id=${encodeURIComponent(paperSessionId)}`;
+      const res  = await fetch(url, { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Unknown error.");
 
       localStorage.setItem("jee_solutions", JSON.stringify(data.answers));
-      setSolStatus(`✅ ${data.count} answers loaded from solutions PDF.`, "success");
+
+      const detected = data.count;
+      const missed   = 54 - detected;
+      setSolStatus(
+        `✅ ${detected} answers loaded. ${missed > 0 ? `⚠️ ${missed} not detected.` : "All found!"}`,
+        "success"
+      );
+
+      // ── Render audit panel ──────────────────────────────────────
+      document.getElementById("auditPanel").classList.add("visible");
+      document.getElementById("auditCount").textContent = detected;
+      document.getElementById("auditMissed").textContent =
+        missed > 0 ? `${missed} questions not detected` : "All 54 detected ✓";
+
+      const banner = document.getElementById("auditDetectedBanner");
+      banner.textContent = missed > 0
+        ? `⚠️ Only ${detected}/54 answers found. Expand "Raw candidate lines" below to see what was missed.`
+        : `✅ All 54 answers detected successfully.`;
+      banner.style.background  = missed > 0 ? "#fff7ed" : "#f0fdf4";
+      banner.style.borderColor = missed > 0 ? "#fed7aa" : "#86efac";
+      banner.style.color       = missed > 0 ? "#c2410c" : "#15803d";
+
+      // ── Section Alignment Report (──────────────────────
+      if (data.validation) {
+        document.getElementById("validationWrap").style.display = "block";
+        const vBody = document.getElementById("valTableBody");
+        vBody.innerHTML = "";
+        const ICON = { OK:"✅", PARTIAL:"⚠️", NO_SOLUTIONS:"❌", COUNT_MISMATCH:"⚠️", TYPE_WARNING:"⚠️" };
+        const BG   = { OK:"#f0fdf4", PARTIAL:"#fffbeb", NO_SOLUTIONS:"#fef2f2", COUNT_MISMATCH:"#fffbeb", TYPE_WARNING:"#fffbeb" };
+        const TL   = { single_correct_mcq:"Single", multiple_correct_mcq:"Multi",
+                       integer_type:"Integer", numerical_type:"Numerical" };
+        data.validation.sections.forEach(s => {
+          const tr = document.createElement("tr");
+          tr.style.background = BG[s.status] || "";
+          tr.innerHTML = `
+            <td style="font-weight:600">${s.section_label}</td>
+            <td>${TL[s.answer_type] || s.answer_type}</td>
+            <td style="text-align:center">${s.expected_count ?? "—"}</td>
+            <td style="text-align:center">${s.q_count}</td>
+            <td style="text-align:center;font-weight:700">${s.ans_count}</td>
+            <td>${ICON[s.status] || "?"} ${s.status}</td>
+            <td style="font-size:10px;color:#64748b">${s.issues.join(" | ") || "—"}</td>`;
+          vBody.appendChild(tr);
+        });
+      }
+
+      // Detected answer chips
+      const ansGrid = document.getElementById("ansGrid");
+      ansGrid.innerHTML = "";
+      Object.entries(data.answers)
+        .sort((a, b) => parseInt(a[0]) - parseInt(b[0]))
+        .forEach(([qNum, ans]) => {
+          const chip = document.createElement("div");
+          chip.className = "ans-chip";
+          const dispAns = Array.isArray(ans) ? ans.join("") : String(ans);
+          chip.innerHTML = `<span class="q-num">Q${qNum}</span><span class="q-ans">${dispAns}</span>`;
+          ansGrid.appendChild(chip);
+        });
+
+      // Raw candidate lines table (green = matched, red = missed)
+      const tbody = document.getElementById("debugTableBody");
+      tbody.innerHTML = "";
+      (data.debug_lines || [])
+        .filter(e => e.category !== "header")
+        .forEach(entry => {
+        const tr = document.createElement("tr");
+        tr.className = entry.matched ? "row-match" : "row-miss";
+        const tag = entry.matched
+          ? `<span class="tag-match">✓ Q${entry.q}=${entry.answer}</span>`
+          : `<span class="tag-miss">✗ missed</span>`;
+        tr.innerHTML = `
+          <td>${entry.page}</td>
+          <td style="max-width:420px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis"
+              title="${entry.line.replace(/"/g, '&quot;')}">${entry.line}</td>
+          <td>${entry.q || "—"}</td>
+          <td>${entry.answer || "—"}</td>
+          <td>${tag}</td>`;
+        tbody.appendChild(tr);
+      });
+
     } catch (err) {
       setSolStatus(`Error: ${err.message}`, "error");
     } finally {

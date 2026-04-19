@@ -1,4 +1,5 @@
 import re
+from typing import Optional
 
 Q_START_REGEX = re.compile(r"^\d+[\.\)]|^Q\s*\d+", re.IGNORECASE)
 
@@ -141,16 +142,28 @@ def _score_section_type(block: str) -> str:
     return answer_type
 
 
+# Extracts the question count declared in section description
+# e.g. "This section contains 06 questions" → 6
+_COUNT_RE = re.compile(r'contains\s+0?(\d+)\s+questions?', re.IGNORECASE)
+
+
+def _extract_expected_count(block: str) -> Optional[int]:
+    m = _COUNT_RE.search(block)
+    return int(m.group(1)) if m else None
+
+
 def _parse_section(lines: list[dict], i: int) -> dict:
     """Parse a section header at index i. Returns a section dict."""
     title = lines[i]["text"].strip()
     block = _extract_section_block(lines, i)
-    answer_type = _score_section_type(block)
+    answer_type    = _score_section_type(block)
+    expected_count = _extract_expected_count(block)
 
     return {
-        "name": title,
-        "description": block.strip(),
-        "answer_type": answer_type,
+        "name":           title,
+        "description":    block.strip(),
+        "answer_type":    answer_type,
+        "expected_count": expected_count,   # int or None
     }
 
 
@@ -424,3 +437,63 @@ def build_questions(lines: list[dict]) -> list[dict]:
             node["id"] = f"q{qi}"
 
     return cleaned
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STRUCTURAL CONVERTER
+# Converts the flat node list produced by build_questions() into an ordered
+# list of Section objects carrying Question objects with global indices.
+# Used by the aligner; does NOT change the renderer pipeline.
+# ─────────────────────────────────────────────────────────────────────────────
+
+def nodes_to_sections(nodes: list[dict]):
+    """
+    Convert the flat [subject, section, question, …] node list into
+    a list of document_model.Section objects.
+
+    Each Question carries:
+      section_index  — 1-based within its section
+      global_index   — 1-based across the whole paper
+    """
+    # Lazy import to avoid circular dependency
+    from document_model import Section, Question
+
+    sections:        list[Section]  = []
+    current_section: Optional[Section] = None
+    current_subject: str = ""
+    global_idx:      int = 0
+
+    for node in nodes:
+        if node["type"] == "subject":
+            current_subject = node["subject"]["name"]
+
+        elif node["type"] == "section":
+            meta = node["section"]
+            current_section = Section(
+                name           = meta["name"],
+                subject        = current_subject,
+                answer_type    = meta["answer_type"],
+                expected_count = meta.get("expected_count"),
+            )
+            sections.append(current_section)
+
+        elif node["type"] == "question":
+            global_idx += 1
+            if current_section is None:
+                current_section = Section(
+                    name        = "General",
+                    subject     = current_subject,
+                    answer_type = "single_correct_mcq",
+                )
+                sections.append(current_section)
+
+            q = Question(
+                section_index = len(current_section.questions) + 1,
+                global_index  = global_idx,
+                lines         = node.get("lines", []),
+            )
+            current_section.questions.append(q)
+
+    print(f"[NODES→SECTIONS] {len(sections)} sections, "
+          f"{global_idx} questions total")
+    return sections
