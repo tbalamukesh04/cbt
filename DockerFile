@@ -1,0 +1,37 @@
+# Python base image
+FROM python:3.11-slim
+
+# Install system dependencies for PyMuPDF rendering and math font fallbacks
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1 \
+    libglib2.0-0 \
+    fontconfig \
+    libfreetype6 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Comply with security policies: run as a non-root user (UID 1000)
+RUN useradd -m -u 1000 user
+USER user
+
+# Ensure pip installs executables to the user's path
+ENV PATH="/home/user/.local/bin:$PATH"
+
+WORKDIR /app
+
+# Copy the lean requirements file with correct ownership
+COPY --chown=user:user backend/requirements.txt .
+
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the entire project with correct ownership
+COPY --chown=user:user . .
+
+# Move into the backend directory for execution context
+WORKDIR /app/backend
+
+# Expose the designated port
+EXPOSE 7860
+
+# Start FastAPI. STRICTLY 1 worker to preserve the in-memory _sessions state.
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "7860", "--workers", "1"]
