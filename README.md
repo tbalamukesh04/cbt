@@ -1,4 +1,4 @@
-# CBTify — JEE Exam Practice Environment
+# JEECBTify — JEE Exam Practice Environment
 
 Welcome to **CBTify**, the ultimate platform designed to transform standard text-based JEE PDF question papers into realistic, interactive Computer-Based Tests (CBT).
 
