@@ -575,6 +575,28 @@ tabs.forEach(tab => tab.questions.forEach(q => {
   qAnswer[q.id] = null;
 }));
 
+// ── Per-question time tracking (silent — only shown in analysis/review) ──
+const qTimeSpent = {};   // qId → accumulated seconds (integer)
+let   _tStart    = null; // Date.now() when user arrived at current question
+
+/** Call BEFORE changing activeTabIdx / activeQIdx to bank elapsed time. */
+function recordTime() {
+  const q = tabs[activeTabIdx]?.questions[activeQIdx];
+  if (!q || _tStart === null) return;
+  const elapsed = Math.round((Date.now() - _tStart) / 1000);
+  qTimeSpent[q.id] = (qTimeSpent[q.id] || 0) + elapsed;
+  _tStart = null;
+}
+
+/** Call AFTER changing activeTabIdx / activeQIdx to start new clock. */
+function startClock() {
+  _tStart = Date.now();
+}
+
+function saveTimeSpent() {
+  localStorage.setItem('jee_time_spent', JSON.stringify(qTimeSpent));
+}
+
 // ── Current position ──
 let activeTabIdx = 0;
 let activeQIdx   = 0;   // within active tab
@@ -616,7 +638,7 @@ function renderTabs() {
     const el = document.createElement("div");
     el.className = "sec-tab" + (idx === activeTabIdx ? " active" : "");
     el.innerHTML = `${tab.tabLabel} <span class="tab-badge">${tab.questions.length}</span>`;
-    el.addEventListener("click", () => { activeTabIdx = idx; activeQIdx = 0; render(); });
+    el.addEventListener("click", () => { recordTime(); activeTabIdx = idx; activeQIdx = 0; render(); });
     container.appendChild(el);
   });
 }
@@ -638,7 +660,7 @@ function renderPalette() {
     if (qi === activeQIdx) btn.classList.add("active-q");
     btn.textContent = gNum;
     btn.title = `Question ${gNum}`;
-    btn.addEventListener("click", () => { activeQIdx = qi; render(); });
+    btn.addEventListener("click", () => { recordTime(); activeQIdx = qi; render(); });
     grid.appendChild(btn);
   });
 }
@@ -941,6 +963,7 @@ function currentQ() {
 
 function saveAndNext() {
   const q = currentQ(); if (!q) return;
+  recordTime();
   // State is already set by interaction; just advance
   const tab = tabs[activeTabIdx];
   if (activeQIdx < tab.questions.length - 1) {
@@ -954,6 +977,7 @@ function saveAndNext() {
 
 function markAndNext() {
   const q = currentQ(); if (!q) return;
+  recordTime();
   const hasAnswer = checkHasAnswer(q);
   qState[q.id] = hasAnswer ? "answered_marked" : "marked";
   const tab = tabs[activeTabIdx];
@@ -974,6 +998,7 @@ function clearResponse() {
 }
 
 function prev() {
+  recordTime();
   if (activeQIdx > 0) {
     activeQIdx--;
   } else if (activeTabIdx > 0) {
@@ -1229,21 +1254,26 @@ function submitExam() {
     `Are you sure?`
   )) return;
 
+  recordTime();
   clearInterval(timerInterval);
-  localStorage.setItem("jee_answers", JSON.stringify({ qAnswer, qState }));
-  window.location.href = "/results";
+  localStorage.setItem('jee_answers', JSON.stringify({ qAnswer, qState }));
+  saveTimeSpent();
+  window.location.href = '/solutions';   // upload solutions PDF, then results
 }
 
 function autoSubmit() {
+  recordTime();
   clearInterval(timerInterval);
-  localStorage.setItem("jee_answers", JSON.stringify({ qAnswer, qState }));
-  window.location.href = "/results";
+  localStorage.setItem('jee_answers', JSON.stringify({ qAnswer, qState }));
+  saveTimeSpent();
+  window.location.href = '/solutions';   // upload solutions PDF, then results
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MAIN RENDER
 // ═══════════════════════════════════════════════════════════════════════════════
 function render() {
+  startClock();   // restart clock for the newly active question
   renderTabs();
   renderQuestion();
   renderPalette();

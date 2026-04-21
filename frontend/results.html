@@ -414,6 +414,7 @@
             <th>Your Answer</th>
             <th>Correct Answer</th>
             <th>Marks</th>
+            <th>Time</th>
             <th>Status</th>
           </tr>
         </thead>
@@ -644,7 +645,7 @@ tabs.forEach((tab, tabIdx) => {
       }
     }
 
-    allRows.push({ gNum, tabLabel: tab.tabLabel, subject: tab.subject, aType,
+    allRows.push({ gNum, qId: q.id, tabLabel: tab.tabLabel, subject: tab.subject, aType,
                    student, correct, score, status });
   });
 
@@ -755,6 +756,17 @@ const TYPE_SHORT = {
   numerical_type:       'Numerical',
 };
 
+// ── Time spent map ────────────────────────────────────────────────────────────
+const timeSpentMap = JSON.parse(localStorage.getItem('jee_time_spent') || '{}');
+
+function fmtTime(secs) {
+  if (!secs || secs <= 0) return '<span style="color:#94a3b8">—</span>';
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  if (m === 0) return `<span style="font-weight:600;color:#475569">${s}s</span>`;
+  return `<span style="font-weight:600;color:#475569">${m}m ${String(s).padStart(2,'0')}s</span>`;
+}
+
 function renderTable() {
   const filtered = allRows.filter(r => {
     if (activeSubject !== 'ALL' && r.subject !== activeSubject) return false;
@@ -769,7 +781,7 @@ function renderTable() {
 
   if (filtered.length === 0) {
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td colspan="7" style="text-align:center;padding:24px;color:#94a3b8">No questions match this filter.</td>`;
+    tr.innerHTML = `<td colspan="8" style="text-align:center;padding:24px;color:#94a3b8">No questions match this filter.</td>`;
     tbody.appendChild(tr);
     return;
   }
@@ -820,6 +832,7 @@ function renderTable() {
         : `<span class="ans-chip missing">N/A</span>`
       }</td>
       <td>${marksHtml}</td>
+      <td>${fmtTime(timeSpentMap[r.qId])}</td>
       <td>${statusMap[r.status] || ''}</td>`;
 
     tbody.appendChild(tr);

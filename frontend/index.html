@@ -1,772 +1,666 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>JEE PDF Parser</title>
+  <title>CBTify — JEE Exam Platform</title>
+  <meta name="description" content="Convert PDF study materials into structured JEE practice exams. One upload, total clarity." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    /* ══ THEME TOKENS ══════════════════════════════════════════════ */
+    :root {
+      --bg:          #f0f2f8;
+      --surface:     #ffffff;
+      --border:      #dde1ef;
+      --border-dash: #c5cadf;
+      --text:        #1a1d2e;
+      --sub:         #5a607a;
+      --muted:       #8890a8;
+      --accent:      #2563eb;
+      --accent-h:    #1d4ed8;
+      --accent-soft: #eff4ff;
+      --success:     #059669;
+      --success-bg:  #ecfdf5;
+      --success-bdr: #a7f3d0;
+      --warn:        #d97706;
+      --shadow:      0 2px 16px rgba(0,0,0,0.07);
+      --shadow-lg:   0 8px 40px rgba(0,0,0,0.10);
+      --r:           18px;
+    }
+    [data-theme="dark"] {
+      --bg:          #0d0f1a;
+      --surface:     #1b1f33;
+      --border:      #2b3050;
+      --border-dash: #2b3050;
+      --text:        #eef0f8;
+      --sub:         #9099b8;
+      --muted:       #596080;
+      --accent:      #4f8ef7;
+      --accent-h:    #74a7ff;
+      --accent-soft: #1a2240;
+      --success:     #34d399;
+      --success-bg:  #052e1c;
+      --success-bdr: #064e3b;
+      --shadow:      0 2px 16px rgba(0,0,0,0.4);
+      --shadow-lg:   0 8px 40px rgba(0,0,0,0.5);
+    }
+
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #f1f5f9;
-      color: #1e293b;
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
       min-height: 100vh;
-      padding: 32px 16px;
+      transition: background .25s, color .25s;
     }
 
-    .container { max-width: 860px; margin: 0 auto; }
-
-    /* ── Upload card ────────────────────────────────────────────── */
-    .upload-card {
-      background: white; border-radius: 12px;
-      padding: 28px; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-      margin-bottom: 24px;
-    }
-    .upload-card h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
-    .upload-card p  { font-size: 13px; color: #64748b; margin-bottom: 20px; }
-    .upload-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-
-    input[type="file"] {
-      font-size: 13px; flex: 1;
-      border: 1px solid #cbd5e1; border-radius: 8px;
-      padding: 8px 12px; background: #f8fafc; cursor: pointer;
-    }
-
-    .btn {
-      padding: 9px 20px; border: none; border-radius: 8px;
-      cursor: pointer; font-size: 14px; font-weight: 600;
-      transition: opacity 0.15s;
-    }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-primary { background: #3b82f6; color: white; }
-    .btn-primary:hover:not(:disabled) { background: #2563eb; }
-    .btn-merge   { background: #10b981; color: white; font-size: 12px;
-                   padding: 6px 14px; }
-
-    /* ── Status ─────────────────────────────────────────────────── */
-    #status {
-      font-size: 13px; margin-top: 14px; padding: 10px 14px;
-      border-radius: 8px; display: none;
-    }
-    #status.info    { background: #eff6ff; color: #1d4ed8; display: block; }
-    #status.error   { background: #fef2f2; color: #b91c1c; display: block; }
-    #status.success { background: #f0fdf4; color: #15803d; display: block; }
-
-    /* ── Start Exam button ──────────────────────────────────────── */
-    #startExamBar {
-      display: none;
-      margin-top: 14px;
-      padding: 14px 0 0;
-      border-top: 1px solid #e2e8f0;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-    }
-    #startExamBar.visible { display: flex; }
-    #startExamBar p { font-size: 13px; color: #475569; }
-    .btn-exam {
-      background: linear-gradient(135deg, #1a237e 0%, #3949ab 100%);
-      color: white; border: none; border-radius: 8px;
-      padding: 10px 24px; font-size: 14px; font-weight: 700;
-      cursor: pointer; white-space: nowrap;
-      box-shadow: 0 4px 12px rgba(26,35,126,0.3);
-      transition: box-shadow 0.15s, transform 0.1s;
-    }
-    .btn-exam:hover { box-shadow: 0 6px 18px rgba(26,35,126,0.4); transform: translateY(-1px); }
-
-    /* ── Answer-key Audit Panel ──────────────────────────────── */
-    #auditPanel {
-      display: none;
-      background: white; border-radius: 12px;
-      border: 1px solid #e2e8f0;
-      padding: 18px 22px; margin-top: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-    }
-    #auditPanel.visible { display: block; }
-    #auditPanel h3 { font-size: 15px; margin-bottom: 12px; color: #1e293b; }
-    .audit-count-bar {
-      display: flex; align-items: center; gap: 12px; margin-bottom: 14px;
-    }
-    .audit-count { font-size: 28px; font-weight: 800; color: #1a237e; }
-    .audit-count-label { font-size: 12px; color: #64748b; line-height: 1.4; }
-    .audit-detected-banner {
-      background: #f0fdf4; border: 1px solid #86efac; border-radius: 6px;
-      padding: 6px 12px; font-size: 13px; color: #15803d; margin-bottom: 14px;
-    }
-    /* Detected answers grid */
-    .ans-grid {
-      display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px;
-    }
-    .ans-chip {
-      display: flex; align-items: center; gap: 6px;
-      padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;
-      border: 1px solid #e2e8f0;
-    }
-    .ans-chip .q-num { color: #64748b; }
-    .ans-chip .q-ans { color: #1a237e; }
-    /* Debug lines table */
-    details.debug-raw { margin-top: 8px; }
-    details.debug-raw summary {
-      cursor: pointer; font-size: 12px; font-weight: 600;
-      color: #475569; padding: 6px 0; user-select: none;
-    }
-    .debug-table {
-      width: 100%; border-collapse: collapse; font-size: 11px;
-      margin-top: 8px; font-family: 'Courier New', monospace;
-    }
-    .debug-table th {
-      background: #f1f5f9; padding: 5px 8px; text-align: left;
-      font-weight: 700; color: #334155;
-    }
-    .debug-table td { padding: 4px 8px; border-bottom: 1px solid #f1f5f9; }
-    .debug-table .row-match { background: #f0fdf4; }
-    .debug-table .row-miss  { background: #fff7f7; }
-    .debug-table .tag-match {
-      background: #dcfce7; color: #15803d; padding: 1px 6px;
-      border-radius: 10px; font-weight: 700;
-    }
-    .debug-table .tag-miss {
-      background: #fee2e2; color: #b91c1c; padding: 1px 6px;
-      border-radius: 10px; font-weight: 700;
-    }
-
-    /* ── Workspace ──────────────────────────────────────────────── */
-    #workspace { display: flex; flex-direction: column; gap: 16px; }
-
-    /* ── Subject header block ───────────────────────────────────── */
-    .subject-block {
-      border-radius: 12px;
-      background: linear-gradient(135deg, #0f766e 0%, #0284c7 100%);
-      padding: 18px 22px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      box-shadow: 0 2px 8px rgba(15,118,110,0.25);
-    }
-    .subject-block .subject-icon {
-      font-size: 28px;
-      line-height: 1;
-      flex-shrink: 0;
-    }
-    .subject-block .subject-name {
-      font-size: 18px;
-      font-weight: 800;
-      color: white;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-    }
-    .subject-block .subject-raw {
-      font-size: 11px;
-      color: rgba(255,255,255,0.65);
-      margin-top: 2px;
-    }
-
-    /* ── Section header block ───────────────────────────────────── */
-    .section-block {
-      border-radius: 10px;
-      border-left: 4px solid #6d28d9;
-      background: #faf5ff;
-      padding: 14px 18px;
-      display: flex;
-      align-items: flex-start;
-      gap: 14px;
-    }
-    .section-block .section-icon {
-      font-size: 20px;
-      line-height: 1;
-      flex-shrink: 0;
-    }
-    .section-block .section-info { flex: 1; }
-    .section-block .section-name {
-      font-size: 13px; font-weight: 800;
-      color: #5b21b6; letter-spacing: 0.05em;
-      text-transform: uppercase;
-    }
-    .section-block .section-desc {
-      font-size: 12px; color: #7c3aed; margin-top: 2px;
-    }
-    .section-block .section-type-badge {
-      font-size: 11px; font-weight: 700;
-      padding: 3px 10px; border-radius: 20px;
-      background: #ede9fe; color: #6d28d9;
-      flex-shrink: 0; align-self: center;
-    }
-
-    /* ── Question card ──────────────────────────────────────────── */
-    .q-card {
-      background: white; border-radius: 12px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.07); overflow: hidden;
-    }
-    .q-header {
+    /* ══ NAVBAR ═════════════════════════════════════════════════════ */
+    nav {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 10px 16px; background: #f8fafc;
-      border-bottom: 1px solid #e2e8f0;
-      font-size: 12px; font-weight: 700; color: #475569;
-      letter-spacing: 0.04em;
+      padding: 16px 40px;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 100;
+      backdrop-filter: blur(12px);
     }
-    .q-header .type-tag {
-      font-size: 10px; font-weight: 600;
-      padding: 2px 8px; border-radius: 4px;
-      background: #ede9fe; color: #6d28d9;
+    .nav-logo {
+      font-size: 22px; font-weight: 900; letter-spacing: -0.5px;
+      color: var(--accent); user-select: none; text-decoration: none;
     }
-    .q-body {
-      padding: 16px; display: flex; flex-direction: column; gap: 8px;
+    .nav-logo span { color: var(--text); }
+    .theme-toggle {
+      background: none; border: 1px solid var(--border);
+      border-radius: 50%; width: 38px; height: 38px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 17px;
+      transition: background .2s, border-color .2s;
     }
-    .q-body img {
-      display: block; max-width: 100%;
-      border-radius: 4px; border: 1px solid #e2e8f0;
+    .theme-toggle:hover { background: var(--accent-soft); border-color: var(--accent); }
+
+    /* ══ PAGE VIEWS ══════════════════════════════════════════════════ */
+    /* #view-upload  — hero + drop zone   (default) */
+    /* #view-ready   — processing complete (hidden until parse success) */
+    #view-upload { display: block; }
+    #view-ready  { display: none;  }
+
+    /* ══ HERO ════════════════════════════════════════════════════════ */
+    .hero {
+      max-width: 780px; margin: 0 auto;
+      padding: 72px 24px 0; text-align: center;
+    }
+    .hero h1 {
+      font-size: clamp(36px, 6vw, 62px); font-weight: 900;
+      line-height: 1.1; letter-spacing: -1.5px;
+      color: var(--text); margin-bottom: 20px;
+    }
+    .hero h1 .blue { color: var(--accent); }
+    .hero .sub {
+      font-size: clamp(14px, 2vw, 17px); color: var(--sub);
+      line-height: 1.65; max-width: 520px;
+      margin: 0 auto 48px;
     }
 
-    /* ── Answer area ────────────────────────────────────────────── */
-    .q-answer {
-      padding: 12px 16px; border-top: 1px solid #f1f5f9;
-      display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
-    }
-    .q-answer label { font-size: 13px; color: #64748b; font-weight: 600; }
+    /* ══ UPLOAD ZONE ═════════════════════════════════════════════════ */
+    .upload-wrap { max-width: 640px; margin: 0 auto; padding: 0 24px 80px; }
 
-    .option-btn {
-      width: 36px; height: 36px; border-radius: 50%;
-      border: 2px solid #cbd5e1; background: white;
-      font-size: 14px; font-weight: 700; color: #475569;
-      cursor: pointer; transition: all 0.15s;
+    #drop-zone {
+      background: var(--surface);
+      border: 2px dashed var(--border-dash);
+      border-radius: var(--r);
+      padding: 52px 32px 44px; text-align: center; cursor: pointer;
+      transition: border-color .2s, background .2s, transform .15s;
+      box-shadow: var(--shadow); position: relative; overflow: hidden;
     }
-    .option-btn:hover { border-color: #3b82f6; color: #3b82f6; }
-    .option-btn.selected { background: #3b82f6; border-color: #3b82f6; color: white; }
-
-    /* checkbox style for multiple correct */
-    .option-btn.checkbox { border-radius: 6px; }
-    .option-btn.checkbox.selected { background: #7c3aed; border-color: #7c3aed; color: white; }
-
-    .num-input {
-      width: 130px; padding: 8px 12px; font-size: 14px;
-      border: 2px solid #cbd5e1; border-radius: 8px;
-      outline: none; transition: border-color 0.15s;
+    #drop-zone:hover, #drop-zone.drag-over {
+      border-color: var(--accent); background: var(--accent-soft);
+      transform: translateY(-2px); box-shadow: var(--shadow-lg);
     }
-    .num-input:focus { border-color: #3b82f6; }
-
-    .q-footer {
-      display: flex; gap: 10px; padding: 8px 16px;
-      border-top: 1px solid #f1f5f9;
+    #drop-zone input[type=file] {
+      position: absolute; inset: 0; opacity: 0;
+      cursor: pointer; width: 100%; height: 100%;
     }
+    .dz-icon-wrap {
+      width: 64px; height: 64px; background: var(--accent-soft);
+      border-radius: 50%; display: flex; align-items: center;
+      justify-content: center; margin: 0 auto 20px;
+    }
+    #drop-zone:hover .dz-icon-wrap, #drop-zone.drag-over .dz-icon-wrap { background: #dbeafe; }
+    .dz-icon-wrap svg { width: 28px; height: 28px; }
+    .dz-title { font-size: 20px; font-weight: 800; color: var(--text); margin-bottom: 6px; }
+    .dz-hint {
+      font-size: 11px; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--accent); margin-bottom: 20px;
+    }
+    .dz-meta { font-size: 12px; color: var(--muted); display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .dz-meta .dot { width: 3px; height: 3px; border-radius: 50%; background: var(--muted); }
+
+    #file-name-badge {
+      display: none; margin-top: 14px;
+      background: var(--accent-soft); border: 1px solid var(--accent);
+      border-radius: 8px; padding: 8px 16px;
+      font-size: 13px; color: var(--accent); font-weight: 600;
+    }
+    #upload-btn {
+      display: none; width: 100%; margin-top: 16px; padding: 14px;
+      background: var(--accent); color: white; border: none; border-radius: 12px;
+      font-size: 16px; font-weight: 800; cursor: pointer;
+      font-family: inherit; transition: background .2s, transform .15s;
+    }
+    #upload-btn:hover:not(:disabled) { background: var(--accent-h); transform: translateY(-1px); }
+    #upload-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    #upload-btn.visible { display: block; }
+
+    #progress-wrap { display: none; margin-top: 14px; }
+    #progress-bg { height: 5px; background: var(--border); border-radius: 99px; overflow: hidden; }
+    #progress-fill { height: 100%; width: 0%; background: var(--accent); border-radius: 99px; transition: width .4s ease; }
+    #progress-label { font-size: 12px; color: var(--muted); margin-top: 6px; text-align: center; }
+
+    #status { margin-top: 14px; padding: 10px 16px; border-radius: 10px; font-size: 13px; font-weight: 500; display: none; }
+    #status.info    { background: var(--accent-soft); color: var(--accent); border: 1px solid #bfdbfe; display: block; }
+    #status.error   { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; display: block; }
+    #status.success { background: var(--success-bg); color: var(--success); border: 1px solid var(--success-bdr); display: block; }
+
+    /* ══ PROCESSING COMPLETE VIEW ════════════════════════════════════ */
+    #view-ready {
+      min-height: calc(100vh - 65px);
+      display: none; /* overridden to flex by JS */
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 24px 80px;
+      animation: fadeUp .45s ease both;
+    }
+
+    /* Green checkmark badge */
+    .check-badge {
+      width: 72px; height: 72px; border-radius: 20px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 28px;
+    }
+    .check-circle {
+      width: 46px; height: 46px; border-radius: 50%;
+      background: #22c55e;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .check-circle svg { width: 24px; height: 24px; color: white; }
+
+    /* Heading + sub */
+    #view-ready h1 {
+      font-size: clamp(28px, 4vw, 40px); font-weight: 900;
+      color: var(--text); letter-spacing: -1px; margin-bottom: 12px;
+      text-align: center;
+    }
+    #view-ready .ready-sub {
+      font-size: 15px; color: var(--sub); text-align: center;
+      max-width: 440px; line-height: 1.6; margin-bottom: 36px;
+    }
+
+    /* File badge card */
+    .file-badge-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px 22px;
+      display: flex; align-items: center; gap: 14px;
+      width: 100%; max-width: 420px;
+      box-shadow: var(--shadow);
+      margin-bottom: 32px;
+    }
+    .fbc-icon {
+      width: 36px; height: 36px; border-radius: 8px;
+      background: var(--accent-soft);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .fbc-icon svg { width: 20px; height: 20px; color: var(--accent); }
+    .fbc-info { flex: 1; min-width: 0; }
+    .fbc-label {
+      font-size: 10px; font-weight: 800; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--accent); margin-bottom: 2px;
+    }
+    .fbc-name {
+      font-size: 14px; font-weight: 700; color: var(--text);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .fbc-check { flex-shrink: 0; }
+    .fbc-check svg { width: 22px; height: 22px; color: #22c55e; }
+
+    /* CTA button */
+    .btn-start-exam {
+      padding: 16px 56px;
+      background: var(--accent);
+      color: white; border: none; border-radius: 12px;
+      font-size: 17px; font-weight: 800; cursor: pointer;
+      font-family: inherit; letter-spacing: .01em;
+      box-shadow: 0 6px 24px rgba(37,99,235,0.35);
+      transition: all .2s; position: relative; overflow: hidden;
+      margin-bottom: 18px;
+    }
+    .btn-start-exam::after {
+      content: '';
+      position: absolute; top: 0; left: -100%;
+      width: 60%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+      animation: shine 2s infinite;
+    }
+    @keyframes shine { to { left: 150%; } }
+    .btn-start-exam:hover {
+      background: var(--accent-h);
+      transform: translateY(-2px);
+      box-shadow: 0 10px 32px rgba(37,99,235,0.45);
+    }
+
+    /* Meta row: 180 MINUTES • N QUESTIONS */
+    .exam-meta {
+      display: flex; align-items: center; gap: 16px;
+      font-size: 12px; font-weight: 700; letter-spacing: .06em;
+      text-transform: uppercase; color: var(--accent);
+    }
+    .exam-meta span { display: flex; align-items: center; gap: 6px; }
+    .meta-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--muted); }
+
+    /* Upload again link */
+    .upload-again {
+      margin-top: 28px; font-size: 13px; color: var(--muted);
+      cursor: pointer; background: none; border: none; font-family: inherit;
+      text-decoration: underline; transition: color .15s;
+    }
+    .upload-again:hover { color: var(--sub); }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ══ CONFIRMATION MODAL ═══════════════════════════════════════════ */
+    #modal-overlay {
+      display: none;
+      position: fixed; inset: 0; z-index: 999;
+      background: rgba(180,185,210,0.45);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      align-items: center; justify-content: center;
+      padding: 24px;
+      animation: overlayIn .2s ease both;
+    }
+    #modal-overlay.open { display: flex; }
+    @keyframes overlayIn { from { opacity:0; } to { opacity:1; } }
+
+    .modal-card {
+      background: var(--surface);
+      border-radius: 20px;
+      padding: 36px 32px 28px;
+      max-width: 380px; width: 100%;
+      text-align: center;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.18);
+      animation: modalIn .25s cubic-bezier(0.34,1.56,0.64,1) both;
+    }
+    @keyframes modalIn {
+      from { opacity:0; transform: scale(0.92) translateY(12px); }
+      to   { opacity:1; transform: scale(1)   translateY(0); }
+    }
+
+    .modal-icon-wrap {
+      width: 52px; height: 52px; border-radius: 14px;
+      background: var(--accent-soft);
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 20px;
+    }
+    .modal-icon-wrap svg { width: 26px; height: 26px; color: var(--accent); }
+
+    .modal-title {
+      font-size: 20px; font-weight: 900;
+      color: var(--text); margin-bottom: 10px;
+    }
+    .modal-body {
+      font-size: 14px; color: var(--sub);
+      line-height: 1.6; margin-bottom: 28px;
+      max-width: 300px; margin-left: auto; margin-right: auto;
+    }
+
+    .modal-btn-yes {
+      display: block; width: 100%;
+      padding: 14px;
+      background: #1e3a8a;
+      color: white; border: none; border-radius: 10px;
+      font-size: 15px; font-weight: 700; cursor: pointer;
+      font-family: inherit; margin-bottom: 10px;
+      transition: background .2s, transform .15s;
+    }
+    .modal-btn-yes:hover {
+      background: #1e40af;
+      transform: translateY(-1px);
+    }
+
+    .modal-btn-no {
+      display: block; width: 100%;
+      padding: 13px;
+      background: #e8edf8;
+      color: var(--accent); border: none; border-radius: 10px;
+      font-size: 15px; font-weight: 700; cursor: pointer;
+      font-family: inherit;
+      transition: background .2s;
+    }
+    .modal-btn-no:hover { background: #dce4f5; }
+
+    [data-theme="dark"] .modal-btn-no { background: #1e2540; color: var(--accent); }
+    [data-theme="dark"] .modal-btn-no:hover { background: #252d4e; }
+    [data-theme="dark"] .modal-btn-yes { background: #1e3a8a; }
   </style>
 </head>
 <body>
-<div class="container">
 
-  <div class="upload-card">
-    <h1>JEE PDF Parser</h1>
-    <p>Upload a text-based JEE question paper. Questions are rendered as images with full visual fidelity.</p>
-    <div class="upload-row">
+<!-- ── Navbar ─────────────────────────────────────────────────────────────── -->
+<nav>
+  <a class="nav-logo" href="/">CBT<span>ify</span></a>
+  <button class="theme-toggle" id="themeBtn" title="Toggle theme" aria-label="Toggle dark mode">🌙</button>
+</nav>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     VIEW 1 — Hero + Upload zone
+════════════════════════════════════════════════════════════════════════════ -->
+<div id="view-upload">
+
+  <div class="hero">
+    <h1>
+      <span class="blue">Convert PDF study<br>materials</span><br>
+      into structured JEE Prep.
+    </h1>
+    <p class="sub">
+      Transform your question papers into organized, exam-ready practice sets.
+      One upload, total clarity.
+    </p>
+  </div>
+
+  <div class="upload-wrap">
+
+    <div id="drop-zone" role="button" aria-label="Upload PDF">
       <input type="file" id="pdfInput" accept="application/pdf" />
-      <button class="btn btn-primary" id="uploadBtn">Upload &amp; Parse</button>
+      <div class="dz-icon-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent)">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="12" y1="18" x2="12" y2="12"/>
+          <polyline points="9 15 12 12 15 15"/>
+        </svg>
+      </div>
+      <div class="dz-title">Upload PDF</div>
+      <div class="dz-hint">Drag and drop or click to browse</div>
+      <div class="dz-meta">
+        <span>🔒 Secure processing</span>
+        <span class="dot"></span>
+        <span>Max 50MB per file</span>
+      </div>
     </div>
+
+    <div id="file-name-badge"></div>
+    <button id="upload-btn" disabled>📤 Parse Question Paper</button>
+
+    <div id="progress-wrap">
+      <div id="progress-bg"><div id="progress-fill"></div></div>
+      <div id="progress-label">Uploading…</div>
+    </div>
+
     <div id="status"></div>
-    <div id="startExamBar">
-      <p>✅ Paper parsed and ready. Review questions above or jump straight to the exam.</p>
-      <button class="btn-exam" id="startExamBtn">🎓 Start Exam →</button>
+
+  </div><!-- /upload-wrap -->
+</div><!-- /#view-upload -->
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     VIEW 2 — Processing Complete
+════════════════════════════════════════════════════════════════════════════ -->
+<div id="view-ready">
+
+  <!-- Checkmark badge -->
+  <div class="check-badge">
+    <div class="check-circle">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+           stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
     </div>
   </div>
 
-  <!-- Solutions PDF upload -->
-  <div class="upload-card" id="solutionsCard">
-    <h2 style="font-size:16px;margin-bottom:4px">📋 Solutions PDF <span style="font-weight:400;color:#94a3b8;font-size:13px">(optional — required for grading)</span></h2>
-    <p style="font-size:13px;color:#64748b;margin-bottom:10px">Upload the answer key / solutions PDF. Answers like "9. AD" or "9. 3" will be auto-detected.</p>
-    <div class="upload-row">
-      <input type="file" id="solutionInput" accept="application/pdf" />
-      <button class="btn btn-primary" id="solutionBtn">Upload Solutions</button>
+  <h1>Processing Complete</h1>
+  <p class="ready-sub">
+    Your assessment material has been analyzed and the test
+    environment is now ready for your attempt.
+  </p>
+
+  <!-- File badge -->
+  <div class="file-badge-card">
+    <div class="fbc-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="3" width="20" height="14" rx="2"/>
+        <line x1="8" y1="21" x2="16" y2="21"/>
+        <line x1="12" y1="17" x2="12" y2="21"/>
+      </svg>
     </div>
-    <div id="solutionStatus"></div>
-    <!-- Audit panel injected here after upload -->
-    <div id="auditPanel">
-      <h3>🔍 Answer Key Audit</h3>
-      <div class="audit-count-bar">
-        <div class="audit-count" id="auditCount">—</div>
-        <div class="audit-count-label">answers detected<br><span id="auditMissed" style="color:#b91c1c"></span></div>
-      </div>
-      <div class="audit-detected-banner" id="auditDetectedBanner"></div>
-
-      <!-- Validation report (section-level) -->
-      <div id="validationWrap" style="display:none;margin-bottom:16px">
-        <div style="font-size:12px;font-weight:700;color:#334155;margin-bottom:6px">Section Alignment Report</div>
-        <table class="debug-table" id="valTable" style="font-family:inherit">
-          <thead><tr>
-            <th>Section</th><th>Type</th><th>Expected</th><th>Parsed</th><th>Answers</th><th>Status</th><th>Issues</th>
-          </tr></thead>
-          <tbody id="valTableBody"></tbody>
-        </table>
-      </div>
-
-      <!-- Detected answers grid -->
-      <div class="ans-grid" id="ansGrid"></div>
-
-      <!-- Raw lines debug (collapsible) -->
-      <details class="debug-raw">
-        <summary>📄 Raw candidate lines (▸ click to expand)</summary>
-        <table class="debug-table">
-          <thead><tr>
-            <th>Pg</th><th>Line text</th><th>Q#</th><th>Detected</th><th>Status</th>
-          </tr></thead>
-          <tbody id="debugTableBody"></tbody>
-        </table>
-      </details>
+    <div class="fbc-info">
+      <div class="fbc-label">Ready for Review</div>
+      <div class="fbc-name" id="ready-filename">paper.pdf</div>
+    </div>
+    <div class="fbc-check">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+           stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+        <polyline points="22 4 12 14.01 9 11.01"/>
+      </svg>
     </div>
   </div>
 
-  <div id="workspace"></div>
+  <!-- CTA -->
+  <button class="btn-start-exam" id="startExamBtn">Start JEE Exam</button>
+
+  <!-- Meta row -->
+  <div class="exam-meta">
+    <span>
+      <!-- clock icon -->
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+      </svg>
+      180 Minutes
+    </span>
+    <span class="meta-dot"></span>
+    <span>
+      <!-- list icon -->
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
+        <line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/>
+        <line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+      </svg>
+      <span id="ready-qcount">—</span> Questions
+    </span>
+  </div>
+
+  <!-- Re-upload link -->
+  <button class="upload-again" id="uploadAgainBtn">↑ Upload a different paper</button>
+
+</div><!-- /#view-ready -->
+
+
+<!-- ══ CONFIRMATION MODAL ════════════════════════════════════════════════════ -->
+<div id="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <div class="modal-card">
+
+    <!-- Warning triangle icon -->
+    <div class="modal-icon-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+        <line x1="12" y1="9" x2="12" y2="13"/>
+        <line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+    </div>
+
+    <div class="modal-title" id="modal-title">Wait!</div>
+    <p class="modal-body">
+      Please ensure you have the solution PDF for this exam at hand to upload at the end of the exam.
+    </p>
+
+    <button class="modal-btn-yes" id="modalYesBtn">Yes, I have the solutions PDF</button>
+    <button class="modal-btn-no"  id="modalNoBtn">I do not have the solution</button>
+
+  </div>
 </div>
 
+
 <script>
-  const API = window.location.origin;
-  let nodes = [];   // ordered list of section + question nodes
+const API = window.location.origin;
+let nodes = [];
+let paperSessionId = localStorage.getItem('jee_session_id') || '';
+let lastFileName   = '';
+let lastTotal      = 0;
 
-  function setStatus(msg, type = "info") {
-    const el = document.getElementById("status");
-    el.textContent = msg;
-    el.className = type;
+// ── Theme ─────────────────────────────────────────────────────────────────────
+const htmlEl   = document.documentElement;
+const themeBtn = document.getElementById('themeBtn');
+const saved    = localStorage.getItem('cbtify_theme') || 'light';
+htmlEl.dataset.theme = saved;
+themeBtn.textContent = saved === 'dark' ? '☀️' : '🌙';
+themeBtn.addEventListener('click', () => {
+  const next = htmlEl.dataset.theme === 'dark' ? 'light' : 'dark';
+  htmlEl.dataset.theme = next;
+  localStorage.setItem('cbtify_theme', next);
+  themeBtn.textContent = next === 'dark' ? '☀️' : '🌙';
+});
+
+// ── View switching ────────────────────────────────────────────────────────────
+const viewUpload = document.getElementById('view-upload');
+const viewReady  = document.getElementById('view-ready');
+
+function showUpload() {
+  viewUpload.style.display = 'block';
+  viewReady.style.display  = 'none';
+}
+function showReady(filename, total) {
+  document.getElementById('ready-filename').textContent = filename;
+  document.getElementById('ready-qcount').textContent   = total;
+  viewUpload.style.display = 'none';
+  viewReady.style.display  = 'flex';
+}
+
+// ── File selection ────────────────────────────────────────────────────────────
+const pdfInput      = document.getElementById('pdfInput');
+const dropZone      = document.getElementById('drop-zone');
+const uploadBtn     = document.getElementById('upload-btn');
+const fileNameBadge = document.getElementById('file-name-badge');
+
+function handleFile(file) {
+  if (!file || file.type !== 'application/pdf') {
+    setStatus('Please select a valid PDF file.', 'error'); return;
   }
+  pdfInput._selected = file;
+  fileNameBadge.textContent = `📎 ${file.name}  (${(file.size/1024/1024).toFixed(1)} MB)`;
+  fileNameBadge.style.display = 'block';
+  uploadBtn.disabled = false;
+  uploadBtn.classList.add('visible');
+  clearStatus();
+}
 
-  const SUBJECT_ICONS = {
-    Mathematics: "📐",
-    Maths:       "📐",
-    Physics:     "⚡",
-    Chemistry:   "🧪",
-  };
+pdfInput.addEventListener('change', () => { if (pdfInput.files[0]) handleFile(pdfInput.files[0]); });
+dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0]; if (f) handleFile(f);
+});
 
-  // ── Answer type labels ─────────────────────────────────────────
-  const TYPE_LABELS = {
-    single_correct_mcq:   "Single Correct",
-    multiple_correct_mcq: "Multiple Correct",
-    integer_type:         "Integer",
-    numerical_type:       "Numerical",
-  };
+// ── Status / Progress helpers ─────────────────────────────────────────────────
+function setStatus(msg, type='info') {
+  const el = document.getElementById('status'); el.textContent = msg; el.className = type;
+}
+function clearStatus() { const el = document.getElementById('status'); el.className=''; el.textContent=''; }
+function setProgress(pct, label) {
+  document.getElementById('progress-wrap').style.display = 'block';
+  document.getElementById('progress-fill').style.width   = pct + '%';
+  document.getElementById('progress-label').textContent  = label;
+}
+function hideProgress() { document.getElementById('progress-wrap').style.display = 'none'; }
 
-  const TYPE_ICONS = {
-    single_correct_mcq:   "🔘",
-    multiple_correct_mcq: "☑️",
-    integer_type:         "🔢",
-    numerical_type:       "📐",
-  };
+// ── Upload ────────────────────────────────────────────────────────────────────
+uploadBtn.addEventListener('click', async () => {
+  const file = pdfInput._selected || pdfInput.files[0];
+  if (!file) { setStatus('Please select a PDF file first.', 'error'); return; }
 
-  // ── Single correct renderer ────────────────────────────────────────────────
-  // State: q._selected = null | "A" | "B" | "C" | "D"   (string, NEVER array)
-  function renderSingleSelect(q, area) {
-    // Guard: if state is somehow an array, collapse to last value or null
-    if (Array.isArray(q._selected)) {
-      q._selected = q._selected.length ? q._selected[q._selected.length - 1] : null;
-    }
+  uploadBtn.disabled = true;
+  uploadBtn.textContent = 'Parsing…';
+  setProgress(20, 'Uploading PDF…');
+  setStatus('Uploading and parsing document…', 'info');
 
-    const label = document.createElement("label");
-    label.textContent = "Answer:";
-    area.appendChild(label);
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    setProgress(50, 'Processing with parser…');
+    const res  = await fetch(`${API}/upload`, { method: 'POST', body: fd });
+    setProgress(85, 'Finalising…');
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Unknown server error.');
 
-    const btnGroup = document.createElement("div");
-    btnGroup.style.display = "flex";
-    btnGroup.style.gap = "8px";
-    area.appendChild(btnGroup);
+    nodes = data.nodes;
+    paperSessionId = data.session_id || '';
+    lastFileName   = file.name;
+    lastTotal      = data.total;
+    localStorage.setItem('jee_nodes',      JSON.stringify(nodes));
+    localStorage.setItem('jee_session_id', paperSessionId);
 
-    ["A", "B", "C", "D"].forEach(opt => {
-      const btn = document.createElement("button");
-      btn.className = "option-btn" + (q._selected === opt ? " selected" : "");
-      btn.textContent = opt;
-      btn.dataset.opt = opt;
+    setProgress(100, 'Done!');
+    setTimeout(() => {
+      hideProgress();
+      showReady(lastFileName, lastTotal);
+    }, 500);
 
-      btn.addEventListener("click", () => {
-        // Overwrite — single value only, never accumulate
-        q._selected = opt;
-
-        console.log("TYPE: single_correct_mcq");
-        console.log("SELECTED:", q._selected);
-
-        // Update sibling buttons in-place — no full re-render
-        btnGroup.querySelectorAll(".option-btn").forEach(b => {
-          b.classList.toggle("selected", b.dataset.opt === opt);
-        });
-      });
-
-      btnGroup.appendChild(btn);
-    });
+  } catch (err) {
+    setStatus(`❌ Error: ${err.message}`, 'error');
+    hideProgress();
+    uploadBtn.disabled = false;
+    uploadBtn.textContent = '📤 Parse Question Paper';
   }
+});
 
-  // ── Multiple correct renderer ──────────────────────────────────────────────
-  // State: q._multi = {}  (plain object — key: true means selected)
-  function renderMultiSelect(q, area) {
-    if (!q._multi || typeof q._multi !== "object" || Array.isArray(q._multi)) {
-      q._multi = {};
-    }
+// ── Start Exam — open confirmation modal ─────────────────────────────────────
+const modalOverlay = document.getElementById('modal-overlay');
 
-    const label = document.createElement("label");
-    label.textContent = "Answer (select all correct):";
-    area.appendChild(label);
+document.getElementById('startExamBtn').addEventListener('click', () => {
+  modalOverlay.classList.add('open');
+});
 
-    const btnGroup = document.createElement("div");
-    btnGroup.style.display = "flex";
-    btnGroup.style.gap = "8px";
-    area.appendChild(btnGroup);
+// Close on backdrop click
+modalOverlay.addEventListener('click', e => {
+  if (e.target === modalOverlay) modalOverlay.classList.remove('open');
+});
 
-    ["A", "B", "C", "D"].forEach(opt => {
-      const btn = document.createElement("button");
-      btn.className = "option-btn checkbox" + (q._multi[opt] ? " selected" : "");
-      btn.textContent = opt;
-      btn.dataset.opt = opt;
+// Yes — go to exam
+document.getElementById('modalYesBtn').addEventListener('click', () => {
+  localStorage.setItem('jee_nodes', JSON.stringify(nodes));
+  window.location.href = '/exam';
+});
 
-      btn.addEventListener("click", () => {
-        // Toggle independently — does NOT clear other selections
-        q._multi[opt] = !q._multi[opt];
+// No — also go to exam (solutions upload is always available after submission)
+document.getElementById('modalNoBtn').addEventListener('click', () => {
+  localStorage.setItem('jee_nodes', JSON.stringify(nodes));
+  window.location.href = '/exam';
+});
 
-        const selected = Object.keys(q._multi).filter(k => q._multi[k]);
-        console.log("TYPE: multiple_correct_mcq");
-        console.log("SELECTED:", selected);
-
-        btn.classList.toggle("selected", q._multi[opt]);
-      });
-
-      btnGroup.appendChild(btn);
-    });
-  }
-
-  // ── Integer renderer ───────────────────────────────────────────────────────
-  // State: q._num (string of integer)
-  function renderIntegerInput(q, area) {
-    const label = document.createElement("label");
-    label.textContent = "Answer (integer 0–9):";
-    area.appendChild(label);
-
-    const inp = document.createElement("input");
-    inp.type = "number";
-    inp.step = "1";
-    inp.min = "0";
-    inp.max = "9";
-    inp.className = "num-input";
-    inp.placeholder = "e.g. 7";
-    inp.value = q._num || "";
-    inp.addEventListener("input", e => {
-      // Enforce single-digit integer on the fly
-      const v = parseInt(e.target.value, 10);
-      if (!isNaN(v)) {
-        const clamped = Math.max(0, Math.min(9, v));
-        inp.value = clamped;
-        q._num = String(clamped);
-      } else {
-        q._num = "";
-      }
-      console.log("TYPE: integer_type  SELECTED:", q._num);
-    });
-    area.appendChild(inp);
-  }
-
-  // ── Numerical renderer ─────────────────────────────────────────────────────
-  // State: q._num (string of decimal)
-  function renderNumericalInput(q, area) {
-    const label = document.createElement("label");
-    label.textContent = "Answer (decimal):";
-    area.appendChild(label);
-
-    const inp = document.createElement("input");
-    inp.type = "number";
-    inp.step = "0.01";
-    inp.className = "num-input";
-    inp.placeholder = "e.g. 3.14";
-    inp.value = q._num || "";
-    inp.addEventListener("change", e => {
-      q._num = e.target.value;
-      console.log("TYPE: numerical_type  SELECTED:", q._num);
-    });
-    area.appendChild(inp);
-  }
-
-  // ── Master dispatcher — STRICT separation, no shared components ────────────
-  function buildAnswerUI(q) {
-    const area  = document.createElement("div");
-    area.className = "q-answer";
-    const aType = q.section ? q.section.answer_type : "single_correct_mcq";
-
-    if (aType === "single_correct_mcq") {
-      renderSingleSelect(q, area);
-
-    } else if (aType === "multiple_correct_mcq") {
-      renderMultiSelect(q, area);
-
-    } else if (aType === "integer_type") {
-      renderIntegerInput(q, area);
-
-    } else if (aType === "numerical_type") {
-      renderNumericalInput(q, area);
-
-    } else {
-      console.warn("Unknown answer_type:", aType, "— falling back to single_correct_mcq");
-      renderSingleSelect(q, area);
-    }
-
-    return area;
-  }
-
-  // ── Render ─────────────────────────────────────────────────────
-  function render() {
-    const ws = document.getElementById("workspace");
-    ws.innerHTML = "";
-
-    // Track question index for merge button
-    const qNodes = nodes.filter(n => n.type === "question");
-
-    nodes.forEach((node, ni) => {
-
-      // ── Subject node ────────────────────────────────────────────
-      if (node.type === "subject") {
-        const sub   = node.subject;
-        const icon  = SUBJECT_ICONS[sub.name] || "📘";
-
-        const block = document.createElement("div");
-        block.className = "subject-block";
-        block.innerHTML = `
-          <div class="subject-icon">${icon}</div>
-          <div>
-            <div class="subject-name">${sub.name}</div>
-            ${sub.raw !== sub.name
-              ? `<div class="subject-raw">${sub.raw}</div>`
-              : ""}
-          </div>
-        `;
-        ws.appendChild(block);
-        return;
-      }
-
-      // ── Section node ────────────────────────────────────────────
-      if (node.type === "section") {
-        const sec   = node.section;
-        const label = TYPE_LABELS[sec.answer_type] || sec.answer_type;
-        const icon  = TYPE_ICONS[sec.answer_type]  || "📄";
-
-        const block = document.createElement("div");
-        block.className = "section-block";
-        block.innerHTML = `
-          <div class="section-icon">${icon}</div>
-          <div class="section-info">
-            <div class="section-name">${sec.name}</div>
-            ${sec.description ? `<div class="section-desc">${sec.description}</div>` : ""}
-          </div>
-          <div class="section-type-badge">${label}</div>
-        `;
-        ws.appendChild(block);
-        return;
-      }
-
-      // ── Question node ───────────────────────────────────────────
-      const q    = node;
-      const qi   = qNodes.indexOf(q);
-      const aType = q.section ? q.section.answer_type : "single_correct_mcq";
-      const typeLabel = TYPE_LABELS[aType] || aType;
-
-      const card = document.createElement("div");
-      card.className = "q-card";
-
-      // Header
-      const header = document.createElement("div");
-      header.className = "q-header";
-      header.innerHTML = `
-        <span>${q.id.toUpperCase()}</span>
-        <span class="type-tag">${typeLabel}</span>
-      `;
-      card.appendChild(header);
-
-      // Images
-      const body = document.createElement("div");
-      body.className = "q-body";
-      q.images.forEach(src => {
-        const img = document.createElement("img");
-        img.src = src; img.alt = q.id;
-        body.appendChild(img);
-      });
-      card.appendChild(body);
-
-      // Answer input
-      card.appendChild(buildAnswerUI(q));
-
-      // Merge with next question
-      if (qi < qNodes.length - 1) {
-        const footer = document.createElement("div");
-        footer.className = "q-footer";
-        const mergeBtn = document.createElement("button");
-        mergeBtn.className = "btn btn-merge";
-        mergeBtn.textContent = "Merge with next question ↓";
-        mergeBtn.addEventListener("click", () => mergeQuestion(q));
-        footer.appendChild(mergeBtn);
-        card.appendChild(footer);
-      }
-
-      ws.appendChild(card);
-    });
-  }
-
-  // ── Merge two adjacent question nodes ──────────────────────────
-  function mergeQuestion(q) {
-    const qNodes = nodes.filter(n => n.type === "question");
-    const qi = qNodes.indexOf(q);
-    if (qi >= qNodes.length - 1) return;
-
-    const next = qNodes[qi + 1];
-    q.images = q.images.concat(next.images);
-    q._debug.line_count += next._debug.line_count;
-
-    // Remove next from nodes list
-    nodes.splice(nodes.indexOf(next), 1);
-    // Re-number questions
-    qNodes.filter(n => n !== next).forEach((n, i) => n.id = `q${i + 1}`);
-    render();
-  }
-
-  let paperSessionId = localStorage.getItem("jee_session_id") || "";
-
-    // ── Upload ─────────────────────────────────────────────────────
-  document.getElementById("uploadBtn").addEventListener("click", async () => {
-    const file = document.getElementById("pdfInput").files[0];
-    if (!file) { setStatus("Please select a PDF file first.", "error"); return; }
-
-    const btn = document.getElementById("uploadBtn");
-    btn.disabled = true; btn.textContent = "Parsing…";
-    setStatus("Uploading and parsing document…", "info");
-    document.getElementById("workspace").innerHTML = "";
-
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res  = await fetch(`${API}/upload`, { method: "POST", body: fd });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Unknown server error.");
-
-      nodes = data.nodes;
-      paperSessionId = data.session_id || "";
-      localStorage.setItem("jee_nodes",      JSON.stringify(nodes));
-      localStorage.setItem("jee_session_id", paperSessionId);
-      render();
-      setStatus(
-        `Parsed ${data.total} question${data.total !== 1 ? "s" : ""}. Review below or click Start Exam.`,
-        "success"
-      );
-      document.getElementById("startExamBar").classList.add("visible");
-    } catch (err) {
-      setStatus(`Error: ${err.message}`, "error");
-    } finally {
-      btn.disabled = false; btn.textContent = "Upload & Parse";
-    }
-  });
-
-  // ── Start Exam button ──────────────────────────────────────────
-  document.getElementById("startExamBtn").addEventListener("click", () => {
-    localStorage.setItem("jee_nodes", JSON.stringify(nodes));
-    window.location.href = "/exam";
-  });
-
-  // ── Solutions upload (with audit panel) ────────────────────────
-  function setSolStatus(msg, type = "info") {
-    const el = document.getElementById("solutionStatus");
-    el.textContent = msg;
-    el.className = type;
-  }
-
-  document.getElementById("solutionBtn").addEventListener("click", async () => {
-    const file = document.getElementById("solutionInput").files[0];
-    if (!file) { setSolStatus("Please select a solutions PDF first.", "error"); return; }
-
-    const btn = document.getElementById("solutionBtn");
-    btn.disabled = true; btn.textContent = "Parsing…";
-    setSolStatus("Uploading solutions…", "info");
-
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const url  = `${API}/upload_solutions?session_id=${encodeURIComponent(paperSessionId)}`;
-      const res  = await fetch(url, { method: "POST", body: fd });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Unknown error.");
-
-      localStorage.setItem("jee_solutions", JSON.stringify(data.answers));
-
-      const detected = data.count;
-      const missed   = 54 - detected;
-      setSolStatus(
-        `✅ ${detected} answers loaded. ${missed > 0 ? `⚠️ ${missed} not detected.` : "All found!"}`,
-        "success"
-      );
-
-      // ── Render audit panel ──────────────────────────────────────
-      document.getElementById("auditPanel").classList.add("visible");
-      document.getElementById("auditCount").textContent = detected;
-      document.getElementById("auditMissed").textContent =
-        missed > 0 ? `${missed} questions not detected` : "All 54 detected ✓";
-
-      const banner = document.getElementById("auditDetectedBanner");
-      banner.textContent = missed > 0
-        ? `⚠️ Only ${detected}/54 answers found. Expand "Raw candidate lines" below to see what was missed.`
-        : `✅ All 54 answers detected successfully.`;
-      banner.style.background  = missed > 0 ? "#fff7ed" : "#f0fdf4";
-      banner.style.borderColor = missed > 0 ? "#fed7aa" : "#86efac";
-      banner.style.color       = missed > 0 ? "#c2410c" : "#15803d";
-
-      // ── Section Alignment Report (──────────────────────
-      if (data.validation) {
-        document.getElementById("validationWrap").style.display = "block";
-        const vBody = document.getElementById("valTableBody");
-        vBody.innerHTML = "";
-        const ICON = { OK:"✅", PARTIAL:"⚠️", NO_SOLUTIONS:"❌", COUNT_MISMATCH:"⚠️", TYPE_WARNING:"⚠️" };
-        const BG   = { OK:"#f0fdf4", PARTIAL:"#fffbeb", NO_SOLUTIONS:"#fef2f2", COUNT_MISMATCH:"#fffbeb", TYPE_WARNING:"#fffbeb" };
-        const TL   = { single_correct_mcq:"Single", multiple_correct_mcq:"Multi",
-                       integer_type:"Integer", numerical_type:"Numerical" };
-        data.validation.sections.forEach(s => {
-          const tr = document.createElement("tr");
-          tr.style.background = BG[s.status] || "";
-          tr.innerHTML = `
-            <td style="font-weight:600">${s.section_label}</td>
-            <td>${TL[s.answer_type] || s.answer_type}</td>
-            <td style="text-align:center">${s.expected_count ?? "—"}</td>
-            <td style="text-align:center">${s.q_count}</td>
-            <td style="text-align:center;font-weight:700">${s.ans_count}</td>
-            <td>${ICON[s.status] || "?"} ${s.status}</td>
-            <td style="font-size:10px;color:#64748b">${s.issues.join(" | ") || "—"}</td>`;
-          vBody.appendChild(tr);
-        });
-      }
-
-      // Detected answer chips
-      const ansGrid = document.getElementById("ansGrid");
-      ansGrid.innerHTML = "";
-      Object.entries(data.answers)
-        .sort((a, b) => parseInt(a[0]) - parseInt(b[0]))
-        .forEach(([qNum, ans]) => {
-          const chip = document.createElement("div");
-          chip.className = "ans-chip";
-          const dispAns = Array.isArray(ans) ? ans.join("") : String(ans);
-          chip.innerHTML = `<span class="q-num">Q${qNum}</span><span class="q-ans">${dispAns}</span>`;
-          ansGrid.appendChild(chip);
-        });
-
-      // Raw candidate lines table (green = matched, red = missed)
-      const tbody = document.getElementById("debugTableBody");
-      tbody.innerHTML = "";
-      (data.debug_lines || [])
-        .filter(e => e.category !== "header")
-        .forEach(entry => {
-        const tr = document.createElement("tr");
-        tr.className = entry.matched ? "row-match" : "row-miss";
-        const tag = entry.matched
-          ? `<span class="tag-match">✓ Q${entry.q}=${entry.answer}</span>`
-          : `<span class="tag-miss">✗ missed</span>`;
-        tr.innerHTML = `
-          <td>${entry.page}</td>
-          <td style="max-width:420px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis"
-              title="${entry.line.replace(/"/g, '&quot;')}">${entry.line}</td>
-          <td>${entry.q || "—"}</td>
-          <td>${entry.answer || "—"}</td>
-          <td>${tag}</td>`;
-        tbody.appendChild(tr);
-      });
-
-    } catch (err) {
-      setSolStatus(`Error: ${err.message}`, "error");
-    } finally {
-      btn.disabled = false; btn.textContent = "Upload Solutions";
-    }
-  });
+// ── Upload again ──────────────────────────────────────────────────────────────
+document.getElementById('uploadAgainBtn').addEventListener('click', () => {
+  // Reset file input + badge
+  pdfInput.value = '';
+  pdfInput._selected = null;
+  fileNameBadge.style.display = 'none';
+  fileNameBadge.textContent = '';
+  uploadBtn.classList.remove('visible');
+  uploadBtn.disabled = true;
+  uploadBtn.textContent = '📤 Parse Question Paper';
+  clearStatus();
+  showUpload();
+});
 </script>
 </body>
 </html>

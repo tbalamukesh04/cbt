@@ -48,6 +48,13 @@ async def review():
     resp.headers["Pragma"]        = "no-cache"
     return resp
 
+@app.get("/solutions", include_in_schema=False)
+async def solutions_page():
+    resp = FileResponse(str(FRONTEND_DIR / "solutions.html"))
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    resp.headers["Pragma"]        = "no-cache"
+    return resp
+
 # ── CORS ───────────────────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
